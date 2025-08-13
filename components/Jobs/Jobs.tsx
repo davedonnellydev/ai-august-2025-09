@@ -23,6 +23,7 @@ import {
   IconAlertCircle,
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
+import { NewJob } from './NewJob';
 
 interface Company {
   id: string;
@@ -55,13 +56,14 @@ export function Jobs({ userId }: JobsProps) {
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNewJobForm, setShowNewJobForm] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !showNewJobForm) {
       fetchJobs();
     }
-  }, [userId]);
+  }, [userId, showNewJobForm]);
 
   const fetchJobs = async () => {
     try {
@@ -122,8 +124,19 @@ export function Jobs({ userId }: JobsProps) {
   };
 
   const handleNewJob = () => {
-    router.push('/jobs/new');
+    setShowNewJobForm(true);
   };
+
+  const handleBackToJobs = () => {
+    setShowNewJobForm(false);
+    // Refresh the jobs list to show the newly created job
+    fetchJobs();
+  };
+
+  // Show NewJob form if requested
+  if (showNewJobForm) {
+    return <NewJob userId={userId} onBack={handleBackToJobs} />;
+  }
 
   if (loading) {
     return (
