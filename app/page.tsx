@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { Landing } from '../components/Landing/Landing';
+import { Jobs } from '../components/Jobs/Jobs';
 import {
   AppShell,
   Container,
@@ -11,15 +13,32 @@ import {
   Stack,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import {
-  IconBrandGithub,
-  IconBrandTwitter,
-  IconBrandLinkedin,
-} from '@tabler/icons-react';
+import { UserProvider, useUser } from './contexts/UserContext';
 
-export default function HomePage() {
+const userID: string = '2d30743e-10cb-4490-933c-4ccdf37364e9';
+
+function HomePageContent() {
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] =
     useDisclosure(false);
+  const [currentView, setCurrentView] = useState<'landing' | 'jobs'>('landing');
+  const { userId } = useUser();
+
+  const handleNavigation = (view: 'landing' | 'jobs') => {
+    setCurrentView(view);
+    // Close mobile menu when navigating
+    if (mobileOpened) {
+      closeMobile();
+    }
+  };
+
+  const renderMainContent = () => {
+    switch (currentView) {
+      case 'jobs':
+        return <Jobs userId={userId} />;
+      default:
+        return <Landing />;
+    }
+  };
 
   return (
     <AppShell
@@ -36,13 +55,23 @@ export default function HomePage() {
       <AppShell.Header>
         <Container size="xl" h="100%">
           <Group justify="space-between" h="100%">
-            <Text size="lg" fw={700} c="blue">
+            <Text
+              size="lg"
+              fw={700}
+              c="blue"
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleNavigation('landing')}
+            >
               Job Application Manager
             </Text>
 
             {/* Desktop Navigation */}
             <Group gap="md" visibleFrom="sm">
-              <Button variant="subtle" component="a" href="#jobs">
+              <Button
+                variant={currentView === 'jobs' ? 'filled' : 'subtle'}
+                component="button"
+                onClick={() => handleNavigation('jobs')}
+              >
                 Jobs
               </Button>
               <Button variant="subtle" component="a" href="#applications">
@@ -70,11 +99,20 @@ export default function HomePage() {
         <Container size="xl">
           <Stack gap="md">
             <Button
-              variant="subtle"
+              variant={currentView === 'landing' ? 'filled' : 'subtle'}
               fullWidth
               justify="start"
-              component="a"
-              href="#jobs"
+              component="button"
+              onClick={() => handleNavigation('landing')}
+            >
+              Dashboard
+            </Button>
+            <Button
+              variant={currentView === 'jobs' ? 'filled' : 'subtle'}
+              fullWidth
+              justify="start"
+              component="button"
+              onClick={() => handleNavigation('jobs')}
             >
               Jobs
             </Button>
@@ -110,11 +148,7 @@ export default function HomePage() {
       </AppShell.Navbar>
 
       {/* Main Content */}
-      <AppShell.Main>
-        <Container size="xl" py="xl">
-          <Landing />
-        </Container>
-      </AppShell.Main>
+      <AppShell.Main>{renderMainContent()}</AppShell.Main>
 
       {/* Footer */}
       <AppShell.Footer>
@@ -127,5 +161,13 @@ export default function HomePage() {
         </Container>
       </AppShell.Footer>
     </AppShell>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <UserProvider userId={userID}>
+      <HomePageContent />
+    </UserProvider>
   );
 }
