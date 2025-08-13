@@ -9,8 +9,8 @@ import {
 import { theme } from '../theme';
 
 export const metadata = {
-  title: 'Project [00]',
-  description: 'An App built for AIAugust App a Day Challenge',
+  title: 'Job Application Manager',
+  description: 'Built to manage job ad and application tracking',
 };
 
 export default function RootLayout({ children }: { children: any }) {
@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: any }) {
     <html lang="en" {...mantineHtmlProps}>
       <head>
         <ColorSchemeScript />
-        <link rel="shortcut icon" href="/favicon.svg" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         <meta
           name="viewport"
           content="minimum-scale=1, initial-scale=1, width=device-width, user-scalable=no"

@@ -1,5 +1,5 @@
 import { render, screen, userEvent } from '@/test-utils';
-import { Welcome } from './Welcome';
+import { Landing } from './Landing';
 
 // Mock the ClientRateLimiter
 jest.mock('../../app/lib/utils/api-helpers', () => ({
@@ -18,20 +18,20 @@ describe('Welcome component', () => {
   });
 
   it('renders the welcome title', () => {
-    render(<Welcome />);
+    render(<Landing />);
     expect(screen.getByText(/Welcome to your/)).toBeInTheDocument();
     expect(screen.getByText('Starter')).toBeInTheDocument();
   });
 
   it('renders input field and buttons', () => {
-    render(<Welcome />);
+    render(<Landing />);
     expect(screen.getByLabelText('Ask a Question')).toBeInTheDocument();
     expect(screen.getByText('Ask Question')).toBeInTheDocument();
     expect(screen.getByText('Reset')).toBeInTheDocument();
   });
 
   it('displays remaining requests count', () => {
-    render(<Welcome />);
+    render(<Landing />);
     expect(
       screen.getByText(/You have \d+ questions remaining/)
     ).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe('Welcome component', () => {
 
   it('allows user to type in input field', async () => {
     const user = userEvent.setup();
-    render(<Welcome />);
+    render(<Landing />);
 
     const input = screen.getByLabelText('Ask a Question');
     await user.type(input, 'Hello world');
@@ -49,7 +49,7 @@ describe('Welcome component', () => {
 
   it('shows error when trying to submit empty input', async () => {
     const user = userEvent.setup();
-    render(<Welcome />);
+    render(<Landing />);
 
     const submitButton = screen.getByText('Ask Question');
     await user.click(submitButton);
@@ -61,7 +61,7 @@ describe('Welcome component', () => {
 
   it('resets form when reset button is clicked', async () => {
     const user = userEvent.setup();
-    render(<Welcome />);
+    render(<Landing />);
 
     const input = screen.getByLabelText('Ask a Question');
     const resetButton = screen.getByText('Reset');
