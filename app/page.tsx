@@ -36,7 +36,7 @@ function HomePageContent() {
       case 'jobs':
         return <Jobs userId={userId} />;
       default:
-        return <Landing />;
+        return <Landing userId={userId} />;
     }
   };
 
@@ -74,11 +74,15 @@ function HomePageContent() {
               >
                 Jobs
               </Button>
-              <Button variant="subtle" component="a" href="#applications">
+              {/* <Button variant="subtle" component="a" href="#applications">
                 Applications
-              </Button>
-              <Button variant="subtle" component="a" href="#overview">
-                Overview
+              </Button> */}
+              <Button
+                variant="subtle"
+                component="a"
+                onClick={() => handleNavigation('landing')}
+              >
+                Dashboard
               </Button>
             </Group>
 
@@ -116,7 +120,7 @@ function HomePageContent() {
             >
               Jobs
             </Button>
-            <Button
+            {/* <Button
               variant="subtle"
               fullWidth
               justify="start"
@@ -124,8 +128,8 @@ function HomePageContent() {
               href="#applications"
             >
               Applications
-            </Button>
-            <Button
+            </Button> */}
+            {/* <Button
               variant="subtle"
               fullWidth
               justify="start"
@@ -133,8 +137,8 @@ function HomePageContent() {
               href="#companies"
             >
               Companies
-            </Button>
-            <Button
+            </Button> */}
+            {/* <Button
               variant="subtle"
               fullWidth
               justify="start"
@@ -142,7 +146,7 @@ function HomePageContent() {
               href="#overview"
             >
               Overview
-            </Button>
+            </Button> */}
           </Stack>
         </Container>
       </AppShell.Navbar>

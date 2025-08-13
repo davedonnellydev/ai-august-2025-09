@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Table,
   Group,
@@ -15,6 +15,7 @@ import {
   ActionIcon,
   Tooltip,
   Box,
+  Select,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -22,8 +23,9 @@ import {
   IconEdit,
   IconAlertCircle,
 } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
 import { NewJob } from './NewJob';
+import { ViewJob } from './ViewJob';
+import { EditJob } from './EditJob';
 
 interface Company {
   id: string;
@@ -52,34 +54,47 @@ interface JobsProps {
   userId: string;
 }
 
+type ViewMode = 'list' | 'new' | 'view' | 'edit';
+
+const decisionOptions = [
+  { value: 'undecided', label: 'Undecided' },
+  { value: 'apply', label: 'Apply' },
+  { value: 'skip', label: 'Skip' },
+];
+
 export function Jobs({ userId }: JobsProps) {
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showNewJobForm, setShowNewJobForm] = useState(false);
-  const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [editingDecision, setEditingDecision] = useState<string | null>(null);
+  const selectRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (userId && !showNewJobForm) {
+    if (userId && viewMode === 'list') {
       fetchJobs();
     }
-  }, [userId, showNewJobForm]);
+  }, [userId, viewMode]);
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(
         `/api/jobs?userId=${encodeURIComponent(userId)}`
       );
       const result = await response.json();
 
       if (result.success) {
-        setJobs(result.data);
+        setJobs(Array.isArray(result.data) ? result.data : []);
       } else {
         setError(result.error || 'Failed to fetch jobs');
+        setJobs([]);
       }
     } catch (err) {
       setError('Network error occurred');
+      setJobs([]);
     } finally {
       setLoading(false);
     }
@@ -116,26 +131,129 @@ export function Jobs({ userId }: JobsProps) {
   };
 
   const handleViewJob = (jobId: string) => {
-    router.push(`/jobs/${jobId}`);
+    setSelectedJobId(jobId);
+    setViewMode('view');
   };
 
   const handleEditJob = (jobId: string) => {
-    router.push(`/jobs/${jobId}/edit`);
+    setSelectedJobId(jobId);
+    setViewMode('edit');
   };
 
   const handleNewJob = () => {
-    setShowNewJobForm(true);
+    setViewMode('new');
   };
 
   const handleBackToJobs = () => {
-    setShowNewJobForm(false);
-    // Refresh the jobs list to show the newly created job
+    setViewMode('list');
+    setSelectedJobId(null);
+    // Refresh the jobs list to show any changes
     fetchJobs();
   };
 
-  // Show NewJob form if requested
-  if (showNewJobForm) {
+  const handleBackToView = () => {
+    setViewMode('view');
+  };
+
+  const handleDecisionEdit = (jobId: string) => {
+    setEditingDecision(jobId);
+  };
+
+  const handleDecisionChange = async (
+    jobId: string,
+    newDecision: string,
+    currentDecision: string
+  ) => {
+    console.log('handleDecisionChange called:', {
+      jobId,
+      newDecision,
+      currentDecision,
+    });
+
+    // Only save if the decision actually changed
+    if (newDecision !== currentDecision) {
+      console.log('Decision changed, making API call...');
+      try {
+        const currentJob = jobs.find((job) => job.id === jobId);
+        if (!currentJob) {
+          console.error('Job not found in local state');
+          return;
+        }
+
+        const requestBody = {
+          title: currentJob.title,
+          location:
+            currentJob.location || currentJob.company?.location || 'Remote',
+          decision: newDecision,
+        };
+
+        console.log('Sending request body:', requestBody);
+
+        const response = await fetch(
+          `/api/jobs/${jobId}?userId=${encodeURIComponent(userId)}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        const result = await response.json();
+        console.log('API response:', result);
+
+        if (result.success) {
+          console.log('Successfully updated decision, updating local state...');
+          // Update the local state
+          setJobs((prevJobs) =>
+            prevJobs.map((job) =>
+              job.id === jobId
+                ? {
+                    ...job,
+                    decision: newDecision as 'undecided' | 'apply' | 'skip',
+                  }
+                : job
+            )
+          );
+        } else {
+          console.error('Failed to update decision:', result.error);
+          // You might want to show a toast notification here
+        }
+      } catch (err) {
+        console.error('Error updating decision:', err);
+        // You might want to show a toast notification here
+      }
+    } else {
+      console.log('Decision unchanged, skipping API call');
+    }
+  };
+
+  // Render different components based on view mode
+  if (viewMode === 'new') {
     return <NewJob userId={userId} onBack={handleBackToJobs} />;
+  }
+
+  if (viewMode === 'view' && selectedJobId) {
+    return (
+      <ViewJob
+        jobId={selectedJobId}
+        userId={userId}
+        onBack={handleBackToJobs}
+        onEdit={() => setViewMode('edit')}
+      />
+    );
+  }
+
+  if (viewMode === 'edit' && selectedJobId) {
+    return (
+      <EditJob
+        jobId={selectedJobId}
+        userId={userId}
+        onBack={handleBackToView}
+        onSave={handleBackToJobs}
+      />
+    );
   }
 
   if (loading) {
@@ -204,74 +322,111 @@ export function Jobs({ userId }: JobsProps) {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {jobs.map((job) => (
-                  <Table.Tr key={job.id}>
-                    <Table.Td>
-                      <Text fw={500} size="sm">
-                        {job.title || 'Untitled'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">
-                        {job.company?.name || 'Unknown Company'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="dimmed">
-                        {job.location || job.company?.location || 'Remote'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={getStatusColor(job.status)}
-                        variant="light"
-                        size="sm"
-                      >
-                        {job.status.charAt(0).toUpperCase() +
-                          job.status.slice(1)}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={getDecisionColor(job.decision)}
-                        variant="light"
-                        size="sm"
-                      >
-                        {job.decision.charAt(0).toUpperCase() +
-                          job.decision.slice(1)}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="dimmed">
-                        {formatDate(job.createdAt)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <Tooltip label="View Details">
-                          <ActionIcon
-                            variant="subtle"
-                            color="blue"
-                            onClick={() => handleViewJob(job.id)}
-                            aria-label="View job details"
+                {Array.isArray(jobs) &&
+                  jobs.map((job) => (
+                    <Table.Tr key={job.id}>
+                      <Table.Td>
+                        <Text fw={500} size="sm">
+                          {job.title || 'Untitled'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">
+                          {job.company?.name || 'Unknown Company'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {job.location || job.company?.location || 'Remote'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={getStatusColor(job.status)}
+                          variant="light"
+                          size="sm"
+                        >
+                          {job.status.charAt(0).toUpperCase() +
+                            job.status.slice(1)}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        {editingDecision === job.id ? (
+                          <Select
+                            ref={selectRef}
+                            size="xs"
+                            data={decisionOptions}
+                            value={job.decision}
+                            onChange={async (value) => {
+                              console.log(
+                                'Select onChange triggered with value:',
+                                value
+                              );
+                              // Always call handleDecisionChange, let it handle the logic
+                              if (value !== null && value !== undefined) {
+                                await handleDecisionChange(
+                                  job.id,
+                                  value,
+                                  job.decision
+                                );
+                              }
+                            }}
+                            onDropdownClose={() => {
+                              console.log('Dropdown closed');
+                              // Only close if we're not in the middle of processing a change
+                              setTimeout(() => {
+                                if (editingDecision === job.id) {
+                                  setEditingDecision(null);
+                                }
+                              }, 100);
+                            }}
+                            style={{ width: 'auto', minWidth: 'fit-content' }}
+                            autoFocus
+                          />
+                        ) : (
+                          <Badge
+                            color={getDecisionColor(job.decision)}
+                            variant="light"
+                            size="sm"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => handleDecisionEdit(job.id)}
                           >
-                            <IconEye size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Edit Job">
-                          <ActionIcon
-                            variant="subtle"
-                            color="yellow"
-                            onClick={() => handleEditJob(job.id)}
-                            aria-label="Edit job"
-                          >
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
+                            {job.decision.charAt(0).toUpperCase() +
+                              job.decision.slice(1)}
+                          </Badge>
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {formatDate(job.createdAt)}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          <Tooltip label="View Details">
+                            <ActionIcon
+                              variant="subtle"
+                              color="blue"
+                              onClick={() => handleViewJob(job.id)}
+                              aria-label="View job details"
+                            >
+                              <IconEye size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                          <Tooltip label="Edit Job">
+                            <ActionIcon
+                              variant="subtle"
+                              color="yellow"
+                              onClick={() => handleEditJob(job.id)}
+                              aria-label="Edit job"
+                            >
+                              <IconEdit size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
               </Table.Tbody>
             </Table>
           </Box>
