@@ -129,10 +129,23 @@ export function Landing({ userId }: LandingProps) {
     [] as Array<{ name: string; value: number; color: string }>
   );
 
-  // Debug logging
-  console.log('Jobs array:', jobs);
-  console.log('Status data:', statusData);
-  console.log('Decision data:', decisionData);
+  // Validate that we have data for charts
+  const hasStatusData = statusData.length > 0;
+  const hasDecisionData = decisionData.length > 0;
+
+  // Mock data for testing when no real data is available
+  const mockStatusData = [
+    { name: 'New', value: 5, color: '#228be6' },
+    { name: 'Applied', value: 3, color: '#40c057' },
+    { name: 'Interview', value: 2, color: '#fd7e14' },
+    { name: 'Rejected', value: 1, color: '#fa5252' },
+  ];
+
+  const mockDecisionData = [
+    { name: 'Undecided', value: 4, color: '#ffd43b' },
+    { name: 'Apply', value: 5, color: '#40c057' },
+    { name: 'Skip', value: 2, color: '#868e96' },
+  ];
 
   if (loading) {
     return (
@@ -231,20 +244,36 @@ export function Landing({ userId }: LandingProps) {
               <Text size="lg" fw={500} mb="md">
                 Job Status Distribution
               </Text>
-              {statusData.length > 0 ? (
-                <Box style={{ width: '100%', height: 300, minWidth: 200 }}>
+              {hasStatusData ? (
+                <Box style={{ width: 300, height: 300, margin: '0 auto' }}>
                   <PieChart
                     data={statusData}
                     size={300}
                     withLabels
                     withTooltip
-                    mx="auto"
                   />
                 </Box>
               ) : (
-                <Text c="dimmed" ta="center" py="xl">
-                  No job data available
-                </Text>
+                <Box
+                  style={{
+                    width: 300,
+                    height: 300,
+                    margin: '0 auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <PieChart
+                    data={mockStatusData}
+                    size={300}
+                    withLabels
+                    withTooltip
+                  />
+                  <Text c="dimmed" ta="center" py="sm" size="sm">
+                    Showing sample data - add real jobs to see your data
+                  </Text>
+                </Box>
               )}
             </Card>
           </Grid.Col>
@@ -254,20 +283,36 @@ export function Landing({ userId }: LandingProps) {
               <Text size="lg" fw={500} mb="md">
                 Decision Distribution
               </Text>
-              {decisionData.length > 0 ? (
-                <Box style={{ width: '100%', height: 300, minWidth: 200 }}>
+              {hasDecisionData ? (
+                <Box style={{ width: 300, height: 300, margin: '0 auto' }}>
                   <PieChart
                     data={decisionData}
                     size={300}
                     withLabels
                     withTooltip
-                    mx="auto"
                   />
                 </Box>
               ) : (
-                <Text c="dimmed" ta="center" py="xl">
-                  No decision data available
-                </Text>
+                <Box
+                  style={{
+                    width: 300,
+                    height: 300,
+                    margin: '0 auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <PieChart
+                    data={mockDecisionData}
+                    size={300}
+                    withLabels
+                    withTooltip
+                  />
+                  <Text c="dimmed" ta="center" py="sm" size="sm">
+                    Showing sample data - add real jobs to see your data
+                  </Text>
+                </Box>
               )}
             </Card>
           </Grid.Col>

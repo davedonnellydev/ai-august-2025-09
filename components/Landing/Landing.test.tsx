@@ -99,7 +99,12 @@ describe('Landing component', () => {
       // Check that we have statistics cards with zero values
       const zeroElements = screen.getAllByText('0');
       expect(zeroElements.length).toBeGreaterThan(0);
-      expect(screen.getByText('No job data available')).toBeInTheDocument();
+
+      // Check that we show sample data message instead of "no data available"
+      const sampleDataMessages = screen.getAllByText(
+        'Showing sample data - add real jobs to see your data'
+      );
+      expect(sampleDataMessages.length).toBeGreaterThan(0);
       expect(screen.getByText('No recent job activity')).toBeInTheDocument();
     });
   });
