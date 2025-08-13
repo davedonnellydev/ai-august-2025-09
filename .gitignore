@@ -127,3 +127,7 @@ dist
 .pnp.*
 
 .DS_Store
+
+
+# Neon credentials
+.neon
