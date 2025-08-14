@@ -18,9 +18,10 @@
     "test": "npm run prettier:check && npm run lint && npm run typecheck && npm run jest"
   },
   "dependencies": {
-    "@mantine/charts": "^8.2.1",
-    "@mantine/core": "8.2.1",
-    "@mantine/hooks": "8.2.1",
+    "@mantine/charts": "^8.2.4",
+    "@mantine/core": "^8.2.4",
+    "@mantine/hooks": "^8.2.4",
+    "@mantine/notifications": "^8.2.4",
     "@neondatabase/serverless": "^1.0.1",
     "@next/bundle-analyzer": "^15.3.3",
     "@tabler/icons-react": "^3.34.0",
@@ -31,7 +32,8 @@
     "openai": "^5.11.0",
     "pg": "^8.16.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "recharts": "^3.1.2"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",

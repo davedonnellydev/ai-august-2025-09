@@ -178,9 +178,9 @@ export function Landing({ userId }: LandingProps) {
         </Title>
 
         {/* Statistics Cards */}
-        <Grid>
+        <Grid align="stretch">
           <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card p="xl" withBorder>
+            <Card p="xl" withBorder style={{ height: '100%' }}>
               <Group justify="space-between">
                 <div>
                   <Text size="lg" fw={500}>
@@ -196,7 +196,7 @@ export function Landing({ userId }: LandingProps) {
           </Grid.Col>
 
           <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card p="xl" withBorder>
+            <Card p="xl" withBorder style={{ height: '100%' }}>
               <Group justify="space-between">
                 <div>
                   <Text size="lg" fw={500}>
@@ -219,7 +219,7 @@ export function Landing({ userId }: LandingProps) {
           </Grid.Col>
 
           <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card p="xl" withBorder>
+            <Card p="xl" withBorder style={{ height: '100%' }}>
               <Group justify="space-between">
                 <div>
                   <Text size="lg" fw={500}>
@@ -242,13 +242,14 @@ export function Landing({ userId }: LandingProps) {
           <Grid.Col span={{ base: 12, lg: 6 }}>
             <Card p="xl" withBorder>
               <Text size="lg" fw={500} mb="md">
-                Job Status Distribution
+                Job Statuses
               </Text>
               {hasStatusData ? (
                 <Box style={{ width: 300, height: 300, margin: '0 auto' }}>
                   <PieChart
                     data={statusData}
-                    size={300}
+                    size={200}
+                    withLabelsLine={false}
                     withLabels
                     withTooltip
                   />
@@ -266,7 +267,8 @@ export function Landing({ userId }: LandingProps) {
                 >
                   <PieChart
                     data={mockStatusData}
-                    size={300}
+                    size={200}
+                    withLabelsLine={false}
                     withLabels
                     withTooltip
                   />
@@ -281,13 +283,14 @@ export function Landing({ userId }: LandingProps) {
           <Grid.Col span={{ base: 12, lg: 6 }}>
             <Card p="xl" withBorder>
               <Text size="lg" fw={500} mb="md">
-                Decision Distribution
+                Decisions
               </Text>
               {hasDecisionData ? (
                 <Box style={{ width: 300, height: 300, margin: '0 auto' }}>
                   <PieChart
                     data={decisionData}
-                    size={300}
+                    size={200}
+                    withLabelsLine={false}
                     withLabels
                     withTooltip
                   />
@@ -305,7 +308,8 @@ export function Landing({ userId }: LandingProps) {
                 >
                   <PieChart
                     data={mockDecisionData}
-                    size={300}
+                    size={200}
+                    withLabelsLine={false}
                     withLabels
                     withTooltip
                   />
