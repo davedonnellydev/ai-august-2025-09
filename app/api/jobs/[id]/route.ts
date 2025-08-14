@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { drizzle } from 'drizzle-orm/neon-http';
 import { eq, and } from 'drizzle-orm';
-import * as schema from '@/app/db/schema';
-
-const db = drizzle(process.env.DATABASE_URL!, { schema });
+import { db, jobListingsTable, companiesTable } from '@/app/db';
 
 export async function GET(
   request: NextRequest,
@@ -36,8 +33,8 @@ export async function GET(
 
     const jobListing = await db.query.jobListingsTable.findFirst({
       where: and(
-        eq(schema.jobListingsTable.id, jobId),
-        eq(schema.jobListingsTable.userId, userId)
+        eq(jobListingsTable.id, jobId),
+        eq(jobListingsTable.userId, userId)
       ),
       with: {
         company: true,
@@ -119,8 +116,8 @@ export async function PUT(
     // Check if job exists and belongs to user
     const existingJob = await db.query.jobListingsTable.findFirst({
       where: and(
-        eq(schema.jobListingsTable.id, jobId),
-        eq(schema.jobListingsTable.userId, userId)
+        eq(jobListingsTable.id, jobId),
+        eq(jobListingsTable.userId, userId)
       ),
     });
 
@@ -165,8 +162,8 @@ export async function PUT(
     if (url && url !== existingJob.url) {
       const duplicateJob = await db.query.jobListingsTable.findFirst({
         where: and(
-          eq(schema.jobListingsTable.userId, userId),
-          eq(schema.jobListingsTable.url, url)
+          eq(jobListingsTable.userId, userId),
+          eq(jobListingsTable.url, url)
         ),
       });
 
@@ -187,9 +184,9 @@ export async function PUT(
       // Check if company already exists
       const existingCompany = await db.query.companiesTable.findFirst({
         where: and(
-          eq(schema.companiesTable.name, companyName),
+          eq(companiesTable.name, companyName),
           companyWebsite
-            ? eq(schema.companiesTable.website, companyWebsite)
+            ? eq(companiesTable.website, companyWebsite)
             : undefined
         ),
       });
@@ -199,7 +196,7 @@ export async function PUT(
       } else {
         // Create new company
         const [newCompany] = await db
-          .insert(schema.companiesTable)
+          .insert(companiesTable)
           .values({
             name: companyName,
             website: companyWebsite,
@@ -212,7 +209,7 @@ export async function PUT(
 
     // Update the job listing
     const [updatedJob] = await db
-      .update(schema.jobListingsTable)
+      .update(jobListingsTable)
       .set({
         companyId,
         title: updateData.title,
@@ -234,10 +231,7 @@ export async function PUT(
         updatedAt: new Date(),
       })
       .where(
-        and(
-          eq(schema.jobListingsTable.id, jobId),
-          eq(schema.jobListingsTable.userId, userId)
-        )
+        and(eq(jobListingsTable.id, jobId), eq(jobListingsTable.userId, userId))
       )
       .returning();
 

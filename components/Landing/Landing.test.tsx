@@ -69,8 +69,8 @@ describe('Landing component', () => {
     render(<Landing userId={mockUserId} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Job Status Distribution')).toBeInTheDocument();
-      expect(screen.getByText('Decision Distribution')).toBeInTheDocument();
+      expect(screen.getByText('Job Statuses')).toBeInTheDocument();
+      expect(screen.getByText('Decisions')).toBeInTheDocument();
     });
   });
 

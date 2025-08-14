@@ -1,0 +1,19 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[functions]
+  node_bundler = "esbuild"
+
+[functions."gmail-sync"]
+  schedule = "0 */2 * * *"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Environment variables (set these in Netlify dashboard)
+# CRON_SECRET - Secret for function authentication
+# GOOGLE_CLIENT_ID - Google OAuth client ID
+# GOOGLE_CLIENT_SECRET - Google OAuth client secret
+# GMAIL_REDIRECT_URI - Gmail OAuth redirect URI
+# DATABASE_URL - Neon Postgres connection string

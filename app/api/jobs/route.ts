@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { drizzle } from 'drizzle-orm/neon-http';
 import { eq, and } from 'drizzle-orm';
-import * as schema from '@/app/db/schema';
-
-const db = drizzle(process.env.DATABASE_URL!, { schema });
+import { db, jobListingsTable, companiesTable } from '@/app/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const jobListings = await db.query.jobListingsTable.findMany({
-      where: eq(schema.jobListingsTable.userId, userId),
+      where: eq(jobListingsTable.userId, userId),
       with: {
         company: true,
       },
@@ -90,8 +87,8 @@ export async function POST(request: NextRequest) {
     if (url) {
       const existingJob = await db.query.jobListingsTable.findFirst({
         where: and(
-          eq(schema.jobListingsTable.userId, userId),
-          eq(schema.jobListingsTable.url, url)
+          eq(jobListingsTable.userId, userId),
+          eq(jobListingsTable.url, url)
         ),
       });
 
@@ -112,9 +109,9 @@ export async function POST(request: NextRequest) {
       // Check if company already exists
       const existingCompany = await db.query.companiesTable.findFirst({
         where: and(
-          eq(schema.companiesTable.name, companyName),
+          eq(companiesTable.name, companyName),
           companyWebsite
-            ? eq(schema.companiesTable.website, companyWebsite)
+            ? eq(companiesTable.website, companyWebsite)
             : undefined
         ),
       });
@@ -124,7 +121,7 @@ export async function POST(request: NextRequest) {
       } else {
         // Create new company
         const [newCompany] = await db
-          .insert(schema.companiesTable)
+          .insert(companiesTable)
           .values({
             name: companyName,
             website: companyWebsite,
@@ -137,7 +134,7 @@ export async function POST(request: NextRequest) {
 
     // Create the job listing
     const [newJob] = await db
-      .insert(schema.jobListingsTable)
+      .insert(jobListingsTable)
       .values({
         userId,
         companyId,
