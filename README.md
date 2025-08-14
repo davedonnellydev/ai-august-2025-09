@@ -87,6 +87,93 @@ OPENAI_API_KEY=your_openai_api_key_here
 import { Component } from '@/components/Component'; // instead of '../../../components/Component'
 ```
 
+## Gmail Sync Setup
+### Netlify Scheduled Function
+The Gmail sync runs automatically every 2 hours via Netlify scheduled functions.
+
+#### Configuration
+1. **Environment Variables** (set in Netlify dashboard):
+   ```
+   CRON_SECRET=your-secret-here
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   GMAIL_REDIRECT_URI=https://your-site.netlify.app/api/oauth/gmail/callback
+   DATABASE_URL=your-neon-postgres-connection-string
+   ```
+2. **Schedule**: Runs every 2 hours (`0 */2 * * *`)
+
+#### Manual Trigger
+Test the sync function manually:
+```bash
+# Set your secret
+export CRON_SECRET="your-secret-here"
+
+# Trigger the function
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://your-site.netlify.app/.netlify/functions/gmail-sync
+```
+#### Expected Response
+```json
+{
+  "success": true,
+  "message": "Gmail sync completed (history API)",
+  "data": {
+    "method": "history_api",
+    "userId": "2d30743e-10cb-4490-933c-4ccdf37364e9",
+    "label": "Label_969329089524850868",
+    "summary": {
+      "processed": 3,
+      "inserted": 2,
+      "updated": 1,
+      "linksCreated": 5,
+      "errors": []
+    },
+    "timestamp": "2025-01-XX..."
+  }
+}
+```
+### Sync Methods
+1. **History API** (preferred): Incremental sync using Gmail History API
+2. **Label Scan** (fallback): Full scan when history is not available
+
+### Monitoring
+
+- **Netlify Logs**: Check function execution logs in Netlify dashboard
+- **Database**: Monitor `email_messages` and `email_links` tables
+- **Sync State**: Track `gmail_sync_state` table for sync position
+
+## Development
+### Prerequisites
+- Node.js 18+
+- Neon Postgres database
+- Google Cloud Console project with Gmail API enabled
+
+### Setup
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Environment variables** (create `.env.local`):
+   ```
+   DATABASE_URL=your-neon-postgres-url
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   GMAIL_REDIRECT_URI=http://localhost:3000/api/oauth/gmail/callback
+   CRON_SECRET=your-secret-here
+   ```
+3. **Database setup**:
+   ```bash
+   npm run db:generate  # Generate migrations
+   npm run db:migrate   # Apply migrations
+   npm run db:seed      # Seed initial data
+   ```
+
+4. **Start development server**:
+   ```bash
+   npm run dev
+   ```
+
 ## 📦 Available Scripts
 
 ### Build and dev scripts

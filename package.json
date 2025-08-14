@@ -24,6 +24,7 @@
     "@mantine/hooks": "^8.2.4",
     "@mantine/notifications": "^8.2.4",
     "@neondatabase/serverless": "^1.0.1",
+    "@netlify/functions": "^4.2.1",
     "@next/bundle-analyzer": "^15.3.3",
     "@tabler/icons-react": "^3.34.0",
     "@types/pg": "^8.15.5",
