@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const label = searchParams.get('label') || 'INBOX';
     const max = parseInt(searchParams.get('max') || '10', 10);
     const q = searchParams.get('q') || undefined;
-    
+
     // For testing, hardcode the user ID as requested in the previous implementation
     const userId = '2d30743e-10cb-4490-933c-4ccdf37364e9';
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Extract relevant metadata for the response
-    const messageMetadata = messages.map(msg => ({
+    const messageMetadata = messages.map((msg) => ({
       id: msg.id,
       threadId: msg.threadId,
       internalDate: msg.internalDate,
@@ -52,10 +52,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Debug list error:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Failed to fetch messages',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );

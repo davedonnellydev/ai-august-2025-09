@@ -18,25 +18,25 @@ export interface MessageDetails {
 }
 
 export interface Color {
-        textColor: string;
-        backgroundColor: string;
+  textColor: string;
+  backgroundColor: string;
 }
 
 export interface Label {
-        id: string;
-        name: string;
-        messageListVisibility: "show" | "hide";
-        labelListVisibility: "labelShow" | "labelShowIfUnread" | "labelHide";
-        type: "system" | "user";
-        messagesTotal: number;
-        messagesUnread: number;
-        threadsTotal: number;
-        threadsUnread: number;
-        color: Color;
-    }
+  id: string;
+  name: string;
+  messageListVisibility: 'show' | 'hide';
+  labelListVisibility: 'labelShow' | 'labelShowIfUnread' | 'labelHide';
+  type: 'system' | 'user';
+  messagesTotal: number;
+  messagesUnread: number;
+  threadsTotal: number;
+  threadsUnread: number;
+  color: Color;
+}
 
 export interface LabelResponse {
-    labels: Label[]
+  labels: Label[];
 }
 
 /**
@@ -52,7 +52,7 @@ export async function listMessageIdsByLabel({
 }: MessageListParams): Promise<gmail_v1.Schema$Message[]> {
   try {
     const gmail = await getGmail(userId);
-    
+
     const response = await gmail.users.messages.list({
       userId: 'me',
       labelIds: [label],
@@ -83,7 +83,7 @@ export async function getMessage(
 ): Promise<MessageDetails> {
   try {
     const gmail = await getGmail(userId);
-    
+
     const response = await gmail.users.messages.get({
       userId: 'me',
       id: messageId,
@@ -91,7 +91,7 @@ export async function getMessage(
     });
 
     const message = response.data;
-    
+
     if (!message) {
       throw new Error(`Message ${messageId} not found`);
     }
@@ -121,7 +121,7 @@ export async function getMessages(
   messageIds: string[]
 ): Promise<MessageDetails[]> {
   try {
-    const messagePromises = messageIds.map(id => getMessage(userId, id));
+    const messagePromises = messageIds.map((id) => getMessage(userId, id));
     return await Promise.all(messagePromises);
   } catch (error) {
     console.error('Error fetching multiple messages:', error);
@@ -129,21 +129,19 @@ export async function getMessages(
   }
 }
 
-
 export async function getLabels(
-    userId: string,
-  ): Promise<gmail_v1.Schema$ListLabelsResponse> {
-    try {
-        const gmail = await getGmail(userId);
-    
-        const response = await gmail.users.labels.list({
-            userId: 'me'
-        });
-        
-        return response.data;
-    } catch (error) {
-      console.error('Error fetching label list:', error);
-      throw new Error(`Failed to fetch label list: ${error}`);
-    }
+  userId: string
+): Promise<gmail_v1.Schema$ListLabelsResponse> {
+  try {
+    const gmail = await getGmail(userId);
+
+    const response = await gmail.users.labels.list({
+      userId: 'me',
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching label list:', error);
+    throw new Error(`Failed to fetch label list: ${error}`);
   }
-  
+}

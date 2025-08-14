@@ -7,7 +7,7 @@ export async function GET(_request: NextRequest) {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    
+
     if (!clientId || !clientSecret) {
       console.error('Google OAuth credentials not configured');
       return NextResponse.json(
@@ -39,9 +39,12 @@ export async function GET(_request: NextRequest) {
       state,
       scopes: GMAIL_SCOPES,
     });
-    
-    console.log('Redirecting to Google OAuth:', `${authUrl.substring(0, 100)}...`);
-    
+
+    console.log(
+      'Redirecting to Google OAuth:',
+      `${authUrl.substring(0, 100)}...`
+    );
+
     // Redirect user to Google consent screen
     return NextResponse.redirect(authUrl);
   } catch (error) {

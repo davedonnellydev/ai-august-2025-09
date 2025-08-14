@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
-    
+
     // Debug: Log all received parameters
     console.log('OAuth callback received:', {
       url: request.url,
@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (!code || !state) {
-      console.error('Missing OAuth parameters:', { code: !!code, state: !!state });
+      console.error('Missing OAuth parameters:', {
+        code: !!code,
+        state: !!state,
+      });
       return NextResponse.json(
         { error: 'Missing required OAuth parameters' },
         { status: 400 }
