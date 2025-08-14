@@ -332,7 +332,7 @@ export const emailRelationEnum = pgEnum('email_relation_type', [
 export const emailMessagesTable = pgTable(
   'email_messages',
   {
-    id: uuid('id').primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     provider: providerEnum('provider').notNull().default('gmail'),
     providerMessageId: varchar('provider_message_id', {
       length: 128,
@@ -393,7 +393,7 @@ export const emailMessagesTable = pgTable(
 // ===== Email Links Table =====
 
 export const emailLinksTable = pgTable('email_links', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
   emailId: uuid('email_id')
     .notNull()
     .references(() => emailMessagesTable.id, { onDelete: 'cascade' }),
