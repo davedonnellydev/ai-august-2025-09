@@ -30,13 +30,13 @@ export async function GET(_request: NextRequest) {
       access_type: 'offline',
       scope: GMAIL_SCOPES,
       prompt: 'consent', // Force consent to get refresh token
-      state: state,
+      state,
     });
 
     console.log('OAuth configuration:', {
       clientId: clientId ? `${clientId.substring(0, 20)}...` : 'NOT SET',
       redirectUri: GMAIL_REDIRECT_URI,
-      state: state,
+      state,
       scopes: GMAIL_SCOPES,
     });
     
