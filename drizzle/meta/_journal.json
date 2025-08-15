@@ -1,34 +1,13 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1755053792494,
-      "tag": "0000_shiny_loa",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1755135878707,
-      "tag": "0001_youthful_karma",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1755137970005,
-      "tag": "0002_redundant_the_fallen",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1755152581826,
-      "tag": "0003_noisy_korvac",
-      "breakpoints": true
-    }
-  ]
+    "version": "7",
+    "dialect": "postgresql",
+    "entries": [
+        {
+            "idx": 0,
+            "version": "7",
+            "when": 1755237442053,
+            "tag": "0002_normal_earthquake",
+            "breakpoints": true
+        }
+    ]
 }

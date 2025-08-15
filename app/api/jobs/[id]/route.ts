@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
-import { db, jobListingsTable, companiesTable } from '@/app/db';
+import { db, jobListingsTable } from '@/app/db';
 
 export async function GET(
   request: NextRequest,
@@ -105,12 +105,10 @@ export async function PUT(
       salaryMin,
       salaryMax,
       currency,
-      url,
+      applyUrl,
       description,
-      companyName,
-      companyWebsite,
+      company,
       status,
-      decision,
     } = body;
 
     // Check if job exists and belongs to user
@@ -134,6 +132,7 @@ export async function PUT(
     // For partial updates, use existing values if not provided
     const updateData = {
       title: title || existingJob.title,
+      company: company || existingJob.company,
       location: location || existingJob.location,
       workMode: workMode || existingJob.workMode,
       employmentType: employmentType || existingJob.employmentType,
@@ -141,10 +140,9 @@ export async function PUT(
       salaryMin: salaryMin || existingJob.salaryMin,
       salaryMax: salaryMax || existingJob.salaryMax,
       currency: currency || existingJob.currency,
-      url: url || existingJob.url,
+      applyUrl: applyUrl || existingJob.applyUrl,
       description: description || existingJob.description,
       status: status || existingJob.status,
-      decision: decision !== undefined ? decision : existingJob.decision,
     };
 
     // Validate required fields
@@ -159,11 +157,11 @@ export async function PUT(
     }
 
     // Check for duplicate job listing (user + url combination should be unique)
-    if (url && url !== existingJob.url) {
+    if (applyUrl && applyUrl !== existingJob.applyUrl) {
       const duplicateJob = await db.query.jobListingsTable.findFirst({
         where: and(
           eq(jobListingsTable.userId, userId),
-          eq(jobListingsTable.url, url)
+          eq(jobListingsTable.applyUrl, applyUrl)
         ),
       });
 
@@ -178,40 +176,10 @@ export async function PUT(
       }
     }
 
-    // Handle company creation/retrieval
-    let companyId: string | undefined;
-    if (companyName) {
-      // Check if company already exists
-      const existingCompany = await db.query.companiesTable.findFirst({
-        where: and(
-          eq(companiesTable.name, companyName),
-          companyWebsite
-            ? eq(companiesTable.website, companyWebsite)
-            : undefined
-        ),
-      });
-
-      if (existingCompany) {
-        companyId = existingCompany.id;
-      } else {
-        // Create new company
-        const [newCompany] = await db
-          .insert(companiesTable)
-          .values({
-            name: companyName,
-            website: companyWebsite,
-            location,
-          })
-          .returning();
-        companyId = newCompany.id;
-      }
-    }
-
     // Update the job listing
     const [updatedJob] = await db
       .update(jobListingsTable)
       .set({
-        companyId,
         title: updateData.title,
         location: updateData.location,
         workMode: updateData.workMode,
@@ -224,10 +192,9 @@ export async function PUT(
           ? updateData.salaryMax.toString()
           : undefined,
         currency: updateData.currency,
-        url: updateData.url,
+        applyUrl: updateData.applyUrl,
         description: updateData.description,
         status: updateData.status,
-        decision: updateData.decision,
         updatedAt: new Date(),
       })
       .where(

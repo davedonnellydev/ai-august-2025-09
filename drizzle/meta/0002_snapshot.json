@@ -1,473 +1,9 @@
 {
-  "id": "7c0270ec-ad12-4c1b-9bcd-6065df39b646",
-  "prevId": "4e464c96-daeb-4d08-9774-8b5b182a537e",
+  "id": "44fa70a3-145c-456a-b97d-d8ca732cf560",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.applications": {
-      "name": "applications",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "job_listing_id": {
-          "name": "job_listing_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "submitted_at": {
-          "name": "submitted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "submitted_via": {
-          "name": "submitted_via",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cv_doc_id": {
-          "name": "cv_doc_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cover_letter_doc_id": {
-          "name": "cover_letter_doc_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "application_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'submitted'"
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "applications_user_idx": {
-          "name": "applications_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "applications_job_idx": {
-          "name": "applications_job_idx",
-          "columns": [
-            {
-              "expression": "job_listing_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "applications_status_idx": {
-          "name": "applications_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "applications_user_id_users_id_fk": {
-          "name": "applications_user_id_users_id_fk",
-          "tableFrom": "applications",
-          "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "applications_job_listing_id_job_listings_id_fk": {
-          "name": "applications_job_listing_id_job_listings_id_fk",
-          "tableFrom": "applications",
-          "tableTo": "job_listings",
-          "columnsFrom": ["job_listing_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "applications_cv_doc_id_documents_id_fk": {
-          "name": "applications_cv_doc_id_documents_id_fk",
-          "tableFrom": "applications",
-          "tableTo": "documents",
-          "columnsFrom": ["cv_doc_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "applications_cover_letter_doc_id_documents_id_fk": {
-          "name": "applications_cover_letter_doc_id_documents_id_fk",
-          "tableFrom": "applications",
-          "tableTo": "documents",
-          "columnsFrom": ["cover_letter_doc_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.companies": {
-      "name": "companies",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "website": {
-          "name": "website",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "linkedin": {
-          "name": "linkedin",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "location": {
-          "name": "location",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "companies_name_website_uniq": {
-          "name": "companies_name_website_uniq",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "website",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "companies_name_idx": {
-          "name": "companies_name_idx",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.documents": {
-      "name": "documents",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "job_listing_id": {
-          "name": "job_listing_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "type": {
-          "name": "type",
-          "type": "document_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "documents_user_idx": {
-          "name": "documents_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "documents_job_idx": {
-          "name": "documents_job_idx",
-          "columns": [
-            {
-              "expression": "job_listing_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "documents_type_idx": {
-          "name": "documents_type_idx",
-          "columns": [
-            {
-              "expression": "type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "documents_user_id_users_id_fk": {
-          "name": "documents_user_id_users_id_fk",
-          "tableFrom": "documents",
-          "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "documents_job_listing_id_job_listings_id_fk": {
-          "name": "documents_job_listing_id_job_listings_id_fk",
-          "tableFrom": "documents",
-          "tableTo": "job_listings",
-          "columnsFrom": ["job_listing_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.email_links": {
-      "name": "email_links",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email_id": {
-          "name": "email_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "normalized_url": {
-          "name": "normalized_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "domain": {
-          "name": "domain",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "type": {
-          "name": "type",
-          "type": "email_link_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'other'"
-        },
-        "last_checked_at": {
-          "name": "last_checked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status_code": {
-          "name": "status_code",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "email_links_email_id_email_messages_id_fk": {
-          "name": "email_links_email_id_email_messages_id_fk",
-          "tableFrom": "email_links",
-          "tableTo": "email_messages",
-          "columnsFrom": ["email_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.email_messages": {
       "name": "email_messages",
       "schema": "",
@@ -476,6 +12,13 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
           "notNull": true
         },
         "provider": {
@@ -498,11 +41,12 @@
           "primaryKey": false,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
+        "label_ids": {
+          "name": "label_ids",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "from_email": {
           "name": "from_email",
@@ -525,13 +69,6 @@
         },
         "cc_emails": {
           "name": "cc_emails",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "bcc_emails": {
-          "name": "bcc_emails",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
@@ -567,31 +104,11 @@
           "primaryKey": false,
           "notNull": false
         },
-        "body_html_clean": {
-          "name": "body_html_clean",
+        "body_html": {
+          "name": "body_html",
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "labels": {
-          "name": "labels",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "message_hash": {
-          "name": "message_hash",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "is_incoming": {
-          "name": "is_incoming",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
         },
         "parse_status": {
           "name": "parse_status",
@@ -607,12 +124,11 @@
           "primaryKey": false,
           "notNull": false
         },
-        "job_signal_score": {
-          "name": "job_signal_score",
-          "type": "numeric(4, 3)",
+        "message_hash": {
+          "name": "message_hash",
+          "type": "varchar(64)",
           "primaryKey": false,
-          "notNull": false,
-          "default": "'0.000'"
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -720,8 +236,12 @@
           "name": "email_messages_user_id_users_id_fk",
           "tableFrom": "email_messages",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -732,36 +252,82 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.email_to_job_listings": {
-      "name": "email_to_job_listings",
+    "public.extraction_jobs": {
+      "name": "extraction_jobs",
       "schema": "",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "email_id": {
           "name": "email_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "job_listing_id": {
-          "name": "job_listing_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "relation_type": {
-          "name": "relation_type",
-          "type": "email_relation_type",
+        "status": {
+          "name": "status",
+          "type": "extraction_status",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
-          "default": "'lead'"
+          "default": "'pending'"
         },
-        "confidence": {
-          "name": "confidence",
-          "type": "numeric(4, 3)",
+        "model": {
+          "name": "model",
+          "type": "varchar(64)",
           "primaryKey": false,
           "notNull": true,
-          "default": "'0.750'"
+          "default": "'gpt-4.1-mini'"
+        },
+        "prompt_version": {
+          "name": "prompt_version",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'v1'"
+        },
+        "instructions_snapshot": {
+          "name": "instructions_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "output": {
+          "name": "output",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tokens_prompt": {
+          "name": "tokens_prompt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "tokens_completion": {
+          "name": "tokens_completion",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -769,72 +335,186 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "email_to_job_listings_email_id_email_messages_id_fk": {
-          "name": "email_to_job_listings_email_id_email_messages_id_fk",
-          "tableFrom": "email_to_job_listings",
-          "tableTo": "email_messages",
-          "columnsFrom": ["email_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         },
-        "email_to_job_listings_job_listing_id_job_listings_id_fk": {
-          "name": "email_to_job_listings_job_listing_id_job_listings_id_fk",
-          "tableFrom": "email_to_job_listings",
-          "tableTo": "job_listings",
-          "columnsFrom": ["job_listing_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "email_to_job_listings_email_id_job_listing_id_relation_type_pk": {
-          "name": "email_to_job_listings_email_id_job_listing_id_relation_type_pk",
-          "columns": ["email_id", "job_listing_id", "relation_type"]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.gmail_sync_state": {
-      "name": "gmail_sync_state",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "last_history_id": {
-          "name": "last_history_id",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_synced_at": {
-          "name": "last_synced_at",
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_jobs_user_email": {
+          "name": "idx_jobs_user_email",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_jobs_status": {
+          "name": "idx_jobs_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "gmail_sync_state_user_id_users_id_fk": {
-          "name": "gmail_sync_state_user_id_users_id_fk",
-          "tableFrom": "gmail_sync_state",
+        "extraction_jobs_user_id_users_id_fk": {
+          "name": "extraction_jobs_user_id_users_id_fk",
+          "tableFrom": "extraction_jobs",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "extraction_jobs_email_id_email_messages_id_fk": {
+          "name": "extraction_jobs_email_id_email_messages_id_fk",
+          "tableFrom": "extraction_jobs",
+          "tableTo": "email_messages",
+          "columnsFrom": [
+            "email_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.gmail_labels_cache": {
+      "name": "gmail_labels_cache",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_label_id": {
+          "name": "provider_label_id",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "uq_labels_user_provider": {
+          "name": "uq_labels_user_provider",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider_label_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_labels_user": {
+          "name": "idx_labels_user",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "gmail_labels_cache_user_id_users_id_fk": {
+          "name": "gmail_labels_cache_user_id_users_id_fk",
+          "tableFrom": "gmail_labels_cache",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -922,8 +602,12 @@
           "name": "gmail_tokens_user_id_users_id_fk",
           "tableFrom": "gmail_tokens",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -951,44 +635,44 @@
           "primaryKey": false,
           "notNull": true
         },
-        "company_id": {
-          "name": "company_id",
+        "email_id": {
+          "name": "email_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "title": {
-          "name": "title",
-          "type": "text",
+        "source_message_id": {
+          "name": "source_message_id",
+          "type": "varchar(128)",
           "primaryKey": false,
           "notNull": false
         },
         "location": {
           "name": "location",
-          "type": "text",
+          "type": "varchar(512)",
           "primaryKey": false,
           "notNull": false
         },
-        "work_mode": {
-          "name": "work_mode",
-          "type": "text",
+        "title": {
+          "name": "title",
+          "type": "varchar(512)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "employment_type": {
           "name": "employment_type",
-          "type": "text",
+          "type": "varchar(64)",
           "primaryKey": false,
           "notNull": false
         },
-        "seniority": {
-          "name": "seniority",
+        "remote": {
+          "name": "remote",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "url": {
+          "name": "url",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1007,13 +691,7 @@
         },
         "currency": {
           "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
+          "type": "varchar(32)",
           "primaryKey": false,
           "notNull": false
         },
@@ -1023,32 +701,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "raw_content": {
-          "name": "raw_content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "extracted": {
-          "name": "extracted",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "extracted_confidence": {
-          "name": "extracted_confidence",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decision": {
-          "name": "decision",
-          "type": "job_decision",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'undecided'"
-        },
         "status": {
           "name": "status",
           "type": "job_status",
@@ -1056,6 +708,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'new'"
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "numeric(4, 3)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0.800'"
         },
         "posted_at": {
           "name": "posted_at",
@@ -1122,21 +788,6 @@
           "method": "btree",
           "with": {}
         },
-        "job_listings_decision_idx": {
-          "name": "job_listings_decision_idx",
-          "columns": [
-            {
-              "expression": "decision",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "job_listings_user_idx": {
           "name": "job_listings_user_idx",
           "columns": [
@@ -1156,7 +807,7 @@
           "name": "job_listings_company_idx",
           "columns": [
             {
-              "expression": "company_id",
+              "expression": "title",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1173,18 +824,26 @@
           "name": "job_listings_user_id_users_id_fk",
           "tableFrom": "job_listings",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "job_listings_company_id_companies_id_fk": {
-          "name": "job_listings_company_id_companies_id_fk",
+        "job_listings_email_id_email_messages_id_fk": {
+          "name": "job_listings_email_id_email_messages_id_fk",
           "tableFrom": "job_listings",
-          "tableTo": "companies",
-          "columnsFrom": ["company_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
+          "tableTo": "email_messages",
+          "columnsFrom": [
+            "email_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -1194,8 +853,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.share_tokens": {
-      "name": "share_tokens",
+    "public.sync_state": {
+      "name": "sync_state",
       "schema": "",
       "columns": {
         "id": {
@@ -1211,53 +870,86 @@
           "primaryKey": false,
           "notNull": true
         },
-        "token": {
-          "name": "token",
-          "type": "text",
+        "mode": {
+          "name": "mode",
+          "type": "varchar(16)",
           "primaryKey": false,
           "notNull": true
         },
-        "purpose": {
-          "name": "purpose",
-          "type": "text",
+        "watched_label_ids": {
+          "name": "watched_label_ids",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
+        "started_at": {
+          "name": "started_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scanned": {
+          "name": "scanned",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "new_emails": {
+          "name": "new_emails",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "jobs_created": {
+          "name": "jobs_created",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "jobs_updated": {
+          "name": "jobs_updated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "errors": {
+          "name": "errors",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "last_history_id": {
+          "name": "last_history_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
-        "share_tokens_token_idx": {
-          "name": "share_tokens_token_idx",
-          "columns": [
-            {
-              "expression": "token",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "share_tokens_user_idx": {
-          "name": "share_tokens_user_idx",
+        "idx_runs_user_time": {
+          "name": "idx_runs_user_time",
           "columns": [
             {
               "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1270,24 +962,89 @@
         }
       },
       "foreignKeys": {
-        "share_tokens_user_id_users_id_fk": {
-          "name": "share_tokens_user_id_users_id_fk",
-          "tableFrom": "share_tokens",
+        "sync_state_user_id_users_id_fk": {
+          "name": "sync_state_user_id_users_id_fk",
+          "tableFrom": "sync_state",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "share_tokens_token_unique": {
-          "name": "share_tokens_token_unique",
-          "nullsNotDistinct": false,
-          "columns": ["token"]
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_settings": {
+      "name": "user_settings",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "watched_label_ids": {
+          "name": "watched_label_ids",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "cron_frequency_minutes": {
+          "name": "cron_frequency_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1440
+        },
+        "custom_instructions": {
+          "name": "custom_instructions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
+      "indexes": {},
+      "foreignKeys": {
+        "user_settings_user_id_users_id_fk": {
+          "name": "user_settings_user_id_users_id_fk",
+          "tableFrom": "user_settings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1346,7 +1103,9 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         }
       },
       "policies": {},
@@ -1355,60 +1114,42 @@
     }
   },
   "enums": {
-    "public.application_status": {
-      "name": "application_status",
+    "public.extraction_status": {
+      "name": "extraction_status",
       "schema": "public",
       "values": [
-        "submitted",
-        "screening",
-        "interview",
-        "offer",
-        "rejected",
-        "withdrawn"
+        "pending",
+        "processing",
+        "succeeded",
+        "failed"
       ]
-    },
-    "public.document_type": {
-      "name": "document_type",
-      "schema": "public",
-      "values": ["cv", "cover_letter", "note"]
-    },
-    "public.email_relation_type": {
-      "name": "email_relation_type",
-      "schema": "public",
-      "values": ["lead", "update", "interview", "rejection", "offer", "other"]
-    },
-    "public.job_decision": {
-      "name": "job_decision",
-      "schema": "public",
-      "values": ["undecided", "apply", "skip"]
     },
     "public.job_status": {
       "name": "job_status",
       "schema": "public",
       "values": [
         "new",
-        "ready",
-        "applied",
-        "interview",
-        "offer",
+        "undecided",
+        "added to huntr",
         "rejected",
-        "archived"
+        "duplicate"
       ]
-    },
-    "public.email_link_type": {
-      "name": "email_link_type",
-      "schema": "public",
-      "values": ["job_posting", "company", "unsubscribe", "tracking", "other"]
     },
     "public.email_parse_status": {
       "name": "email_parse_status",
       "schema": "public",
-      "values": ["unprocessed", "parsed", "failed"]
+      "values": [
+        "unprocessed",
+        "parsed",
+        "failed"
+      ]
     },
     "public.email_provider": {
       "name": "email_provider",
       "schema": "public",
-      "values": ["gmail"]
+      "values": [
+        "gmail"
+      ]
     }
   },
   "schemas": {},
