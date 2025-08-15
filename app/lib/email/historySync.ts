@@ -1,4 +1,4 @@
-import { getGmail } from './gmailClient';
+import { getGmail } from '../google/gmailClient';
 import { getSyncState, updateSyncState } from '../email/syncState';
 import {
   extractPlainText,
@@ -6,6 +6,7 @@ import {
   hashMessage,
 } from '../email/normalize';
 import { upsertEmailMessage, upsertEmailLinks } from '../email/upsert';
+import { extractMessageData, calculateJobSignalScore, extractHtmlFromPayload } from '../email/shared';
 import { gmail_v1 } from 'googleapis';
 
 export interface HistorySyncOptions {
@@ -23,116 +24,7 @@ export interface HistorySyncResult {
   newHistoryId?: string;
 }
 
-/**
- * Extract email headers and build message data from Gmail message
- */
-function extractMessageData(message: gmail_v1.Schema$Message): {
-  fromEmail: string;
-  fromName?: string;
-  toEmails: string[];
-  ccEmails: string[];
-  bccEmails: string[];
-  subject: string;
-  internalDate: number;
-} {
-  const headers = message.payload?.headers || [];
 
-  const fromHeader = headers.find((h) => h.name?.toLowerCase() === 'from');
-  const toHeader = headers.find((h) => h.name?.toLowerCase() === 'to');
-  const ccHeader = headers.find((h) => h.name?.toLowerCase() === 'cc');
-  const bccHeader = headers.find((h) => h.name?.toLowerCase() === 'bcc');
-  const subjectHeader = headers.find(
-    (h) => h.name?.toLowerCase() === 'subject'
-  );
-
-  // Parse from field
-  let fromEmail = '';
-  let fromName = '';
-  if (fromHeader?.value) {
-    const fromMatch = fromHeader.value.match(
-      /(?:"?([^"]*)"?\s)?<?([^<>@\s]+@[^<>\s]+)>?/
-    );
-    if (fromMatch) {
-      fromName = fromMatch[1] || '';
-      fromEmail = fromMatch[2] || '';
-    } else {
-      fromEmail = fromHeader.value;
-    }
-  }
-
-  // Parse to/cc/bcc fields
-  const parseEmailList = (value?: string | null): string[] => {
-    if (!value) {
-      return [];
-    }
-    return value
-      .split(',')
-      .map((email) => email.trim().match(/<?([^<>@\s]+@[^<>\s]+)>?/)?.[1])
-      .filter(Boolean) as string[];
-  };
-
-  const toEmails = parseEmailList(toHeader?.value);
-  const ccEmails = parseEmailList(ccHeader?.value);
-  const bccEmails = parseEmailList(bccHeader?.value);
-
-  return {
-    fromEmail,
-    fromName: fromName || undefined,
-    toEmails,
-    ccEmails,
-    bccEmails,
-    subject: subjectHeader?.value || '',
-    internalDate: parseInt(message.internalDate || '0', 10),
-  };
-}
-
-/**
- * Calculate naive job signal score based on keyword matches
- */
-function calculateJobSignalScore(subject: string, bodyText: string): string {
-  const keywords = [
-    'role',
-    'job',
-    'apply',
-    'position',
-    'frontend',
-    'backend',
-    'fullstack',
-    'developer',
-    'engineer',
-    'software',
-    'application',
-    'opportunity',
-    'hiring',
-    'recruitment',
-    'career',
-    'employment',
-    'vacancy',
-    'opening',
-  ];
-
-  const text = `${subject} ${bodyText}`.toLowerCase();
-  let score = 0;
-  let matches = 0;
-
-  keywords.forEach((keyword) => {
-    if (text.includes(keyword)) {
-      matches++;
-      // Give more weight to subject matches
-      if (subject.toLowerCase().includes(keyword)) {
-        score += 0.1;
-      } else {
-        score += 0.05;
-      }
-    }
-  });
-
-  // Normalize to 0-1 range, with bonus for multiple matches
-  const normalizedScore = Math.min(1.0, score + matches * 0.02);
-
-  // Format as string with 3 decimal places (matching DB schema)
-  return normalizedScore.toFixed(3);
-}
 
 /**
  * Process a single Gmail message and upsert to database
@@ -162,16 +54,14 @@ async function processMessage(
 
   // Build body content
   const bodyText = extractPlainText(message.payload as any);
-  const bodyHtmlClean =
-    message.payload.body?.data ||
-    message.payload.parts?.find((p) => p.mimeType === 'text/html')?.body?.data;
+  const bodyHtmlRaw = extractHtmlFromPayload(message.payload);
 
-  // Clean HTML if present
+  // Clean HTML if present (for storage)
   let cleanHtml: string | undefined;
-  if (bodyHtmlClean) {
+  if (bodyHtmlRaw) {
     try {
       const { cleanHtml: clean } = await import('../email/normalize');
-      cleanHtml = clean(Buffer.from(bodyHtmlClean, 'base64').toString());
+      cleanHtml = clean(Buffer.from(bodyHtmlRaw, 'base64').toString());
     } catch (error) {
       console.warn('Failed to clean HTML:', error);
     }
@@ -222,11 +112,11 @@ async function processMessage(
   const isInserted =
     emailMessage.createdAt.getTime() === emailMessage.updatedAt.getTime();
 
-  // Extract and upsert links
+  // Extract and upsert links from ORIGINAL HTML (before cleaning)
   let linksCreated = 0;
-  if (bodyText || cleanHtml) {
+  if (bodyText || bodyHtmlRaw) {
     const links = extractLinks({
-      html: cleanHtml,
+      html: bodyHtmlRaw ? Buffer.from(bodyHtmlRaw, 'base64').toString() : undefined,
       text: bodyText,
     });
 
@@ -291,9 +181,9 @@ export async function syncByHistory({
     // Step 3: Gather new messageIds for the label
     const messageIds = new Set<string>();
 
-    history.forEach((historyRecord) => {
+    history.forEach((historyRecord: gmail_v1.Schema$History) => {
       if (historyRecord.messagesAdded) {
-        historyRecord.messagesAdded.forEach((messageAdded) => {
+        historyRecord.messagesAdded.forEach((messageAdded: gmail_v1.Schema$HistoryMessageAdded) => {
           if (messageAdded.message?.id) {
             messageIds.add(messageAdded.message.id);
           }

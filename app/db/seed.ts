@@ -8,14 +8,30 @@ import * as schema from '../db/schema';
 const db = drizzle(process.env.DATABASE_URL!, { schema });
 
 const {
-  usersTable,
-  companiesTable,
-  jobListingsTable,
-  applicationsTable,
-  documentsTable,
-} = schema;
+    usersTable,
+    companiesTable,
+    jobListingsTable,
+    applicationsTable,
+    documentsTable,
+    emailMessagesTable,
+    emailLinksTable,
+    gmailSyncStateTable,
+  } = schema;
 
 async function main() {
+    console.log('🌱 Seeding (idempotent) - safe to re-run');
+  // 1) Clear tables that are automatically synced by the cron job.
+  //    We delete child tables first to satisfy FK constraints.
+  console.log('🧹 Clearing cron-synced tables...');
+  await db.delete(emailLinksTable);
+  await db.delete(emailMessagesTable);
+  await db.delete(gmailSyncStateTable);
+  console.log('✅ Cleared cron-synced tables (email_links, email_messages, gmail_sync_state)');
+
+ // 2) Seed core app data without overwriting existing records.
+  //    Pattern: try insert with ON CONFLICT DO NOTHING, then SELECT the existing row.
+  //    Adjust the values below to match your previous seed data.
+  
   // --- Seed user (UPSERT by email) ---
   const email = 'davepauldonnelly@gmail.com';
   const displayName = 'Development User';
@@ -28,7 +44,7 @@ async function main() {
     })
     .returning();
 
-  console.log('✅ user:', user);
+  console.log('✅ user:', { id: user.id, email: user.email });
 
   // --- Seed company (UPSERT by (name, website)) ---
   const companyName = 'Acme Corp';
@@ -81,7 +97,7 @@ async function main() {
     })
     .returning();
 
-  console.log('✅ job listing:', listing);
+    console.log('✅ job listing:', { id: listing.id, title: listing.title });
 
   // --- Seed document (FIND-OR-INSERT by (userId, jobListingId, type='cv')) ---
   const existingDoc = await db.query.documentsTable.findFirst({
@@ -109,7 +125,7 @@ async function main() {
         .returning()
     )[0];
 
-  console.log('✅ document:', document);
+    console.log('✅ document:', { id: document.id, title: document.title });
 
   // --- Seed application (FIND-OR-INSERT by (userId, jobListingId)) ---
   const existingApp = await db.query.applicationsTable.findFirst({
@@ -136,8 +152,8 @@ async function main() {
         .returning()
     )[0];
 
-  console.log('✅ application:', application);
-  console.log('✨ Seed complete (idempotent). Re-run safe.');
+    console.log('✅ application:', { id: application.id, status: application.status });
+    console.log('✨ Seed complete (idempotent). Re-run safe.');
 }
 
 main().catch((err) => {

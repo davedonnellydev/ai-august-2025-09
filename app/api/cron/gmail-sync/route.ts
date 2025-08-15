@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncByHistory } from '../../../lib/google/historySync';
+import { syncByHistory } from '../../../lib/email/historySync';
 import { syncByLabel } from '../../../lib/email/syncByLabel';
 import { createSyncState } from '../../../lib/email/syncState';
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       const labelResult = await syncByLabel({
         userId,
         label,
-        maxFetch: 50, // Process more messages on fallback
+        maxFetch: 20, // Process more messages on fallback
       });
 
       // If this is the first run, create sync state with current history ID

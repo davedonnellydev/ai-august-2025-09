@@ -1,5 +1,5 @@
 import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
-import { syncByHistory } from '../../app/lib/google/historySync';
+import { syncByHistory } from '../../app/lib/email/historySync';
 import { syncByLabel } from '../../app/lib/email/syncByLabel';
 import { createSyncState } from '../../app/lib/email/syncState';
 
