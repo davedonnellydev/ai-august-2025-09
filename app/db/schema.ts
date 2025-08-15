@@ -14,15 +14,13 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-
 export const jobStatusEnum = pgEnum('job_status', [
   'new',
   'undecided',
-  'added to huntr',
+  'added_to_huntr',
   'rejected',
   'duplicate',
 ]);
-
 export const providerEnum = pgEnum('email_provider', ['gmail']);
 export const parseStatusEnum = pgEnum('email_parse_status', [
   'unprocessed',
@@ -31,6 +29,14 @@ export const parseStatusEnum = pgEnum('email_parse_status', [
 ]);
 export const extractionStatusEnum = pgEnum("extraction_status", [
     "pending", "processing", "succeeded", "failed"
+  ]);
+export const linkTypeEnum = pgEnum('email_link_type', [
+    'job_posting',
+    'company',
+    'unsubscribe',
+    'tracking',
+    'job_list',
+    'other',
   ]);
 
 // ===== Users =====
@@ -178,46 +184,52 @@ export const extractionJobsTable = pgTable("extraction_jobs", {
     index("idx_jobs_status").on(t.status),
   ]);
 
-// ===== Job Listings =====
-export const jobListingsTable = pgTable(
-    'job_listings',
+// ===== Job Lead URLs =====
+export const jobLeadUrlsTable = pgTable(
+    'job_lead_urls',
     {
       id: uuid('id').primaryKey().defaultRandom(),
       userId: uuid('user_id')
         .notNull()
         .references(() => usersTable.id, { onDelete: 'cascade' }),
       emailId: uuid("email_id").notNull().references(() => emailMessagesTable.id, { onDelete: "cascade" }),
-      sourceMessageId: varchar("source_message_id", { length: 128 }), // provider message id for traceability
-      title: varchar("location", { length: 512 }),
-      company: varchar("title", { length: 512 }).notNull(),
-      location: varchar("location", { length: 512 }),
-      seniority: varchar("employment_type", { length: 64 }), // 'junior' | 'mid' | 'senior' | ...
-      employmentType: varchar("employment_type", { length: 64 }), // 'full-time' | 'contract' | ...
-      workMode: varchar("remote", { length: 32 }), // 'onsite' | 'hybrid' | 'remote'
-      applyUrl: text('url'),
-      salaryMin: numeric('salary_min'),
-      salaryMax: numeric('salary_max'),
-      currency: varchar('currency', { length: 32 }),
-      description: text('description'),
+      extractionJobId: uuid('extraction_job_id').references(() => extractionJobsTable.id, { onDelete: 'set null'}),
       status: jobStatusEnum('status').notNull().default('new'),
+
+      url: text('url').notNull(),
+      normalizedUrl: text('normalized_url'),
+      type: linkTypeEnum('type').notNull().default('other'),
+      
+      // Optional job details extracted from email content
+      title: varchar('title', { length: 512 }),
+      company: varchar('company', { length: 512 }),
+      location: varchar('location', { length: 512 }),
+      seniority: varchar('seniority', { length: 64 }), // 'junior' | 'mid' | 'senior' | ...
+      employmentType: varchar('employment_type', { length: 64 }), // 'full-time' | 'contract' | ...
+      workMode: varchar('work_mode', { length: 32 }), // 'onsite' | 'hybrid' | 'remote'
+      
+      // Deduplication and tracking
+      canonicalJobKey: varchar('canonical_job_key', { length: 256 }), // hash for soft dedupe
+      anchorText: text('anchor_text'), // link text from email
+      sourceLabelId: varchar('source_label_id', { length: 256 }), // Gmail label that contained this
+      firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
+      
+      // Metadata
       tags: jsonb("tags").$type<string[]>().notNull().default([]),
       confidence: numeric("confidence", { precision: 4, scale: 3 }).default("0.800"),  
-      postedAt: timestamp('posted_at', { withTimezone: true }),
-      discoveredAt: timestamp('discovered_at', { withTimezone: true })
-        .notNull()
-        .defaultNow(),
       createdAt: timestamp('created_at', { withTimezone: true })
         .notNull()
         .defaultNow(),
       updatedAt: timestamp('updated_at', { withTimezone: true })
         .notNull()
-        .defaultNow(), // update this in code on edits
+        .defaultNow(),
     },
     (t) => [
-      uniqueIndex('job_listings_user_url_uniq').on(t.userId, t.applyUrl),
-      index('job_listings_status_idx').on(t.status),
-      index('job_listings_user_idx').on(t.userId),
-      index('job_listings_company_idx').on(t.company),
+      uniqueIndex('uq_leads_user_normalized_url').on(t.userId, t.normalizedUrl),
+      index('idx_leads_canonical_job_key').on(t.canonicalJobKey),
+      index('idx_leads_status').on(t.status),
+      index('idx_leads_user').on(t.userId),
+      index('idx_leads_company').on(t.company),
     ]
   );
 

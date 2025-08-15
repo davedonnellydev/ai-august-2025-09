@@ -12,6 +12,7 @@ const {
     userSettingsTable,
     emailMessagesTable,
     extractionJobsTable,
+    jobLeadUrlsTable,
     syncStateTable,
   } = schema;
 
@@ -21,6 +22,7 @@ async function main() {
   console.log('🧹 Clearing cron-synced tables...');
   await db.delete(emailMessagesTable);
   await db.delete(extractionJobsTable);
+  await db.delete(jobLeadUrlsTable);
   await db.delete(syncStateTable);
   console.log('✅ Cleared cron-synced tables (email_links, email_messages, gmail_sync_state)');
 
@@ -59,7 +61,6 @@ const [label] = await db
   .returning();
   console.log('✅ gmail_labels_cache:', { id: label.id, providerLabelId: label.providerLabelId });
 
-
  // --- Seed User Settings ---
  const [userSetting] = await db
     .insert(userSettingsTable)
@@ -69,6 +70,15 @@ const [label] = await db
         cronFrequencyMinutes: 1440,
         customInstructions: '',
     })
+    .onConflictDoUpdate({
+        target: [userSettingsTable.userId],
+        set: {
+            watchedLabelIds: userSettingsTable.watchedLabelIds,
+            cronFrequencyMinutes: userSettingsTable.cronFrequencyMinutes,
+            customInstructions: userSettingsTable.customInstructions,
+            updatedAt: new Date()
+        },
+      })
     .returning();
 
 console.log('✅ user_settings:', { userId: userSetting.userId });

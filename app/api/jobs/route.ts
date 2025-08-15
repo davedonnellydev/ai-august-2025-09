@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
-import { db, jobListingsTable, companiesTable } from '@/app/db';
+import { db, jobListingsTable } from '@/app/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,19 +58,21 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      title,
-      location,
-      workMode,
-      employmentType,
-      seniority,
-      salaryMin,
-      salaryMax,
-      currency,
-      url,
-      description,
-      companyName,
-      companyWebsite,
-    } = body;
+        emailId,
+        title,
+        location,
+        workMode,
+        employmentType,
+        seniority,
+        salaryMin,
+        salaryMax,
+        currency,
+        applyUrl,
+        description,
+        company,
+        tags,
+        confidence
+      } = body;
 
     // Validate required fields
     if (!title || !location) {
@@ -84,11 +86,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate job listing (user + url combination should be unique)
-    if (url) {
+    if (applyUrl) {
       const existingJob = await db.query.jobListingsTable.findFirst({
         where: and(
           eq(jobListingsTable.userId, userId),
-          eq(jobListingsTable.url, url)
+          eq(jobListingsTable.applyUrl, applyUrl)
         ),
       });
 
@@ -103,42 +105,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Handle company creation/retrieval
-    let companyId: string | undefined;
-    if (companyName) {
-      // Check if company already exists
-      const existingCompany = await db.query.companiesTable.findFirst({
-        where: and(
-          eq(companiesTable.name, companyName),
-          companyWebsite
-            ? eq(companiesTable.website, companyWebsite)
-            : undefined
-        ),
-      });
-
-      if (existingCompany) {
-        companyId = existingCompany.id;
-      } else {
-        // Create new company
-        const [newCompany] = await db
-          .insert(companiesTable)
-          .values({
-            name: companyName,
-            website: companyWebsite,
-            location,
-          })
-          .returning();
-        companyId = newCompany.id;
-      }
-    }
-
     // Create the job listing
     const [newJob] = await db
       .insert(jobListingsTable)
       .values({
         userId,
-        companyId,
-        source: 'manual',
+        emailId,
+        company,
         title,
         location,
         workMode,
@@ -147,10 +120,11 @@ export async function POST(request: NextRequest) {
         salaryMin: salaryMin ? salaryMin.toString() : undefined,
         salaryMax: salaryMax ? salaryMax.toString() : undefined,
         currency,
-        url,
+        applyUrl,
         description,
-        decision: 'undecided',
         status: 'new',
+        tags,
+        confidence
       })
       .returning();
 

@@ -1,5 +1,5 @@
 {
-  "id": "fe4170ce-09ec-4668-970b-2292c1f0665c",
+  "id": "b3f71aa9-320e-4ca5-a9c4-f532af90d738",
   "prevId": "44fa70a3-145c-456a-b97d-d8ca732cf560",
   "version": "7",
   "dialect": "postgresql",
@@ -645,7 +645,7 @@
           "name": "extraction_job_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "status": {
           "name": "status",
@@ -667,6 +667,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "domain": {
+          "name": "domain",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "type": {
           "name": "type",
           "type": "email_link_type",
@@ -675,15 +681,15 @@
           "notNull": true,
           "default": "'other'"
         },
-        "title": {
-          "name": "title",
-          "type": "varchar(512)",
+        "status_code": {
+          "name": "status_code",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
-        "company": {
-          "name": "company",
-          "type": "varchar(512)",
+        "description": {
+          "name": "description",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -693,11 +699,11 @@
           "primaryKey": false,
           "notNull": false
         },
-        "seniority": {
-          "name": "seniority",
-          "type": "varchar(64)",
+        "title": {
+          "name": "title",
+          "type": "varchar(512)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "employment_type": {
           "name": "employment_type",
@@ -705,36 +711,29 @@
           "primaryKey": false,
           "notNull": false
         },
-        "work_mode": {
-          "name": "work_mode",
+        "remote": {
+          "name": "remote",
           "type": "varchar(32)",
           "primaryKey": false,
           "notNull": false
         },
-        "canonical_job_key": {
-          "name": "canonical_job_key",
-          "type": "varchar(256)",
+        "salary_min": {
+          "name": "salary_min",
+          "type": "numeric",
           "primaryKey": false,
           "notNull": false
         },
-        "anchor_text": {
-          "name": "anchor_text",
-          "type": "text",
+        "salary_max": {
+          "name": "salary_max",
+          "type": "numeric",
           "primaryKey": false,
           "notNull": false
         },
-        "source_label_id": {
-          "name": "source_label_id",
-          "type": "varchar(256)",
+        "currency": {
+          "name": "currency",
+          "type": "varchar(32)",
           "primaryKey": false,
           "notNull": false
-        },
-        "first_seen_at": {
-          "name": "first_seen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         },
         "tags": {
           "name": "tags",
@@ -766,8 +765,8 @@
         }
       },
       "indexes": {
-        "uq_leads_user_normalized_url": {
-          "name": "uq_leads_user_normalized_url",
+        "job_listings_user_url_uniq": {
+          "name": "job_listings_user_url_uniq",
           "columns": [
             {
               "expression": "user_id",
@@ -776,7 +775,7 @@
               "nulls": "last"
             },
             {
-              "expression": "normalized_url",
+              "expression": "url",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -787,23 +786,8 @@
           "method": "btree",
           "with": {}
         },
-        "idx_leads_canonical_job_key": {
-          "name": "idx_leads_canonical_job_key",
-          "columns": [
-            {
-              "expression": "canonical_job_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_leads_status": {
-          "name": "idx_leads_status",
+        "job_listings_status_idx": {
+          "name": "job_listings_status_idx",
           "columns": [
             {
               "expression": "status",
@@ -817,8 +801,8 @@
           "method": "btree",
           "with": {}
         },
-        "idx_leads_user": {
-          "name": "idx_leads_user",
+        "job_listings_user_idx": {
+          "name": "job_listings_user_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -832,11 +816,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_leads_company": {
-          "name": "idx_leads_company",
+        "job_listings_company_idx": {
+          "name": "job_listings_company_idx",
           "columns": [
             {
-              "expression": "company",
+              "expression": "title",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1172,7 +1156,7 @@
       "values": [
         "new",
         "undecided",
-        "added_to_huntr",
+        "added to huntr",
         "rejected",
         "duplicate"
       ]
