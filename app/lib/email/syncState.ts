@@ -1,14 +1,16 @@
-import { db, gmailSyncStateTable } from '../../db';
+import { db, syncStateTable } from '../../db';
 import { eq } from 'drizzle-orm';
 
 export interface SyncState {
-  lastHistoryId: string;
-  lastSyncedAt: Date;
+  lastHistoryId?: string;
+  startedAt: Date;
+  finishedAt?: Date;
 }
 
 export interface SyncStateUpdate {
   lastHistoryId?: string;
-  lastSyncedAt?: Date;
+  startedAt?: Date;
+  finishedAt?: Date;
 }
 
 /**
@@ -20,11 +22,12 @@ export async function getSyncState(userId: string): Promise<SyncState | null> {
   try {
     const [syncState] = await db
       .select({
-        lastHistoryId: gmailSyncStateTable.lastHistoryId,
-        lastSyncedAt: gmailSyncStateTable.lastSyncedAt,
+        lastHistoryId: syncStateTable.lastHistoryId,
+        startedAt: syncStateTable.startedAt,
+        finishedAt: syncStateTable.finishedAt,
       })
-      .from(gmailSyncStateTable)
-      .where(eq(gmailSyncStateTable.userId, userId))
+      .from(syncStateTable)
+      .where(eq(syncStateTable.userId, userId))
       .limit(1);
 
     if (!syncState) {
@@ -32,8 +35,9 @@ export async function getSyncState(userId: string): Promise<SyncState | null> {
     }
 
     return {
-      lastHistoryId: syncState.lastHistoryId || '',
-      lastSyncedAt: syncState.lastSyncedAt,
+      lastHistoryId: syncState.lastHistoryId || undefined,
+      startedAt: syncState.startedAt,
+      finishedAt: syncState.finishedAt || undefined,
     };
   } catch (error) {
     console.error('Error getting sync state:', error);
@@ -42,48 +46,56 @@ export async function getSyncState(userId: string): Promise<SyncState | null> {
 }
 
 /**
- * Update sync state for a user
+ * Upsert sync state for a user (idempotent)
  * @param userId - User identifier
- * @param state - New sync state values
+ * @param patch - Fields to update
  * @returns Updated sync state
  */
-export async function updateSyncState(
+export async function upsertSyncState(
   userId: string,
-  state: SyncStateUpdate
+  patch: SyncStateUpdate
 ): Promise<SyncState> {
   try {
     const updateData: any = {};
 
-    if (state.lastHistoryId !== undefined) {
-      updateData.lastHistoryId = state.lastHistoryId;
+    if (patch.lastHistoryId !== undefined) {
+      updateData.lastHistoryId = patch.lastHistoryId;
     }
 
-    if (state.lastSyncedAt !== undefined) {
-      updateData.lastSyncedAt = state.lastSyncedAt;
-    } else {
-      updateData.lastSyncedAt = new Date();
+    if (patch.startedAt !== undefined) {
+      updateData.startedAt = patch.startedAt;
     }
 
-    const [updatedSyncState] = await db
-      .insert(gmailSyncStateTable)
+    if (patch.finishedAt !== undefined) {
+      updateData.finishedAt = patch.finishedAt;
+    }
+
+    // Note: syncStateTable doesn't have updatedAt column
+
+    const [upsertedSyncState] = await db
+      .insert(syncStateTable)
       .values({
         userId,
-        lastHistoryId: state.lastHistoryId || null,
-        lastSyncedAt: state.lastSyncedAt || new Date(),
+        mode: 'manual', // Default mode, can be overridden
+        watchedLabelIds: [], // Default empty array
+        lastHistoryId: patch.lastHistoryId || null,
+        startedAt: patch.startedAt || new Date(),
+        finishedAt: patch.finishedAt || null,
       })
       .onConflictDoUpdate({
-        target: gmailSyncStateTable.userId,
+        target: syncStateTable.userId,
         set: updateData,
       })
       .returning();
 
     return {
-      lastHistoryId: updatedSyncState.lastHistoryId || '',
-      lastSyncedAt: updatedSyncState.lastSyncedAt,
+      lastHistoryId: upsertedSyncState.lastHistoryId || undefined,
+      startedAt: upsertedSyncState.startedAt,
+      finishedAt: upsertedSyncState.finishedAt || undefined,
     };
   } catch (error) {
-    console.error('Error updating sync state:', error);
-    throw new Error(`Failed to update sync state for user ${userId}: ${error}`);
+    console.error('Error upserting sync state:', error);
+    throw new Error(`Failed to upsert sync state for user ${userId}: ${error}`);
   }
 }
 
@@ -99,24 +111,30 @@ export async function createSyncState(
 ): Promise<SyncState> {
   try {
     const [syncState] = await db
-      .insert(gmailSyncStateTable)
+      .insert(syncStateTable)
       .values({
         userId,
+        mode: 'manual',
+        watchedLabelIds: [],
         lastHistoryId: lastHistoryId || null,
-        lastSyncedAt: new Date(),
+        startedAt: new Date(),
+        finishedAt: null,
       })
       .onConflictDoUpdate({
-        target: gmailSyncStateTable.userId,
+        target: syncStateTable.userId,
         set: {
           lastHistoryId: lastHistoryId || null,
-          lastSyncedAt: new Date(),
+          startedAt: new Date(),
+          finishedAt: null,
+          // Note: syncStateTable doesn't have updatedAt column
         },
       })
       .returning();
 
     return {
-      lastHistoryId: syncState.lastHistoryId || '',
-      lastSyncedAt: syncState.lastSyncedAt,
+      lastHistoryId: syncState.lastHistoryId || undefined,
+      startedAt: syncState.startedAt,
+      finishedAt: syncState.finishedAt || undefined,
     };
   } catch (error) {
     console.error('Error creating sync state:', error);

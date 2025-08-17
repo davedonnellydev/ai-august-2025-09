@@ -1,5 +1,5 @@
 import { getGmail } from '../google/gmailClient';
-import { getSyncState, updateSyncState } from '../email/syncState';
+import { getSyncState, upsertSyncState } from '../email/syncState';
 import {
   extractPlainText,
   extractLinks,
@@ -224,7 +224,7 @@ export async function syncByHistory({
 
     // Step 5: Store the latest historyId back to DB
     if (latestHistoryId !== startHistoryId) {
-      await updateSyncState(userId, { lastHistoryId: latestHistoryId });
+      await upsertSyncState(userId, { lastHistoryId: latestHistoryId });
       result.newHistoryId = latestHistoryId;
       console.log(
         `Updated history ID from ${startHistoryId} to ${latestHistoryId}`
