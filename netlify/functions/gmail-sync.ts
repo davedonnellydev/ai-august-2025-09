@@ -1,7 +1,9 @@
 import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { syncByHistory } from '../../app/lib/email/historySync';
 import { syncByLabel } from '../../app/lib/email/syncByLabel';
-import { createSyncState } from '../../app/lib/email/syncState';
+import { upsertSyncState } from '../../app/lib/email/syncState';
+import { db, userSettingsTable, syncStateTable } from '../../app/db';
+import { eq, and, lt, or, isNull } from 'drizzle-orm';
 
 interface SyncResponse {
   success: boolean;
@@ -15,6 +17,27 @@ interface SyncResponse {
   };
   error?: string;
   details?: string;
+}
+
+interface ScheduledSyncResult {
+  success: boolean;
+  message: string;
+  data: {
+    totalUsers: number;
+    usersProcessed: number;
+    usersSkipped: number;
+    totalEmailsProcessed: number;
+    totalLeadsInserted: number;
+    totalErrors: number;
+    results: Array<{
+      userId: string;
+      labels: string[];
+      method: 'history_api' | 'label_scan' | 'skipped' | 'error';
+      summary?: any;
+      error?: string;
+    }>;
+    timestamp: string;
+  };
 }
 
 const handler: Handler = async (
@@ -34,120 +57,212 @@ const handler: Handler = async (
       };
     }
 
-    // Configuration
-    const userId = '2d30743e-10cb-4490-933c-4ccdf37364e9';
-    const label = 'Label_969329089524850868';
-
-    console.log('Starting Gmail sync (Netlify function):', {
-      userId,
-      label,
+    console.log('Starting scheduled Gmail sync (Netlify function):', {
       timestamp: new Date().toISOString(),
       eventType: event.httpMethod,
       isScheduled: event.httpMethod === 'POST',
     });
 
-    // Step 1: Try history sync first
-    const historyResult = await syncByHistory({ userId, label });
+    // Get all users with user settings
+    const allUsers = await db
+      .select({
+        userId: userSettingsTable.userId,
+        watchedLabelIds: userSettingsTable.watchedLabelIds,
+        cronFrequencyMinutes: userSettingsTable.cronFrequencyMinutes,
+      })
+      .from(userSettingsTable);
 
-    if (historyResult.usedFallback) {
-      console.log('History sync not available, falling back to label scan');
+    // Filter users with watched labels (non-empty arrays)
+    const usersWithSettings = allUsers.filter(
+      (user) => user.watchedLabelIds && user.watchedLabelIds.length > 0
+    );
 
-      // Step 2: Fall back to label scanning
-      const labelResult = await syncByLabel({
-        userId,
-        label,
-        maxFetch: 25, // Process 25 messages on fallback
-      });
-
-      // If this is the first run, create sync state with current history ID
-      if (labelResult.scanned > 0) {
-        try {
-          // Get the latest history ID from Gmail API
-          const { getGmail } = await import('../../app/lib/google/gmailClient');
-          const gmail = await getGmail(userId);
-
-          // Get the latest history ID by fetching a recent message
-          const listResponse = await gmail.users.messages.list({
-            userId: 'me',
-            labelIds: [label],
-            maxResults: 1,
-          });
-
-          if (
-            listResponse.data.messages &&
-            listResponse.data.messages.length > 0
-          ) {
-            const messageId = listResponse.data.messages[0].id;
-            if (messageId) {
-              const messageResponse = await gmail.users.messages.get({
-                userId: 'me',
-                id: messageId,
-                format: 'metadata',
-                metadataHeaders: ['historyId'],
-              });
-
-              const historyId = messageResponse.data.historyId;
-              if (historyId) {
-                await createSyncState(userId, historyId);
-                console.log(`Created sync state with history ID: ${historyId}`);
-              }
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to create initial sync state:', error);
-        }
-      }
-
-      const response: SyncResponse = {
-        success: true,
-        message: 'Gmail sync completed (label scan fallback)',
-        data: {
-          method: 'label_scan',
-          userId,
-          label,
-          summary: labelResult,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
+    if (usersWithSettings.length === 0) {
       return {
         statusCode: 200,
-        body: JSON.stringify(response),
+        body: JSON.stringify({
+          success: true,
+          message: 'No users with watched labels found',
+          data: {
+            totalUsers: 0,
+            usersProcessed: 0,
+            usersSkipped: 0,
+            totalEmailsProcessed: 0,
+            totalLeadsInserted: 0,
+            totalErrors: 0,
+            results: [],
+            timestamp: new Date().toISOString(),
+          },
+        }),
       };
     }
 
-    // History sync was successful
-    const response: SyncResponse = {
+    const results = [];
+    let usersProcessed = 0;
+    let usersSkipped = 0;
+    let totalEmailsProcessed = 0;
+    let totalLeadsInserted = 0;
+    let totalErrors = 0;
+
+    // Process each user
+    for (const user of usersWithSettings) {
+      try {
+        // Check if user should be skipped based on cron frequency
+        const [syncState] = await db
+          .select()
+          .from(syncStateTable)
+          .where(eq(syncStateTable.userId, user.userId))
+          .limit(1);
+
+        const shouldSkip =
+          syncState?.finishedAt &&
+          (() => {
+            const lastSync = new Date(syncState.finishedAt);
+            const now = new Date();
+            const minutesSinceLastSync = Math.floor(
+              (now.getTime() - lastSync.getTime()) / (1000 * 60)
+            );
+            return minutesSinceLastSync < user.cronFrequencyMinutes;
+          })();
+
+        if (shouldSkip) {
+          console.log(
+            `Skipping user ${user.userId} - within cron frequency (${user.cronFrequencyMinutes} minutes)`
+          );
+          usersSkipped++;
+          results.push({
+            userId: user.userId,
+            labels: user.watchedLabelIds,
+            method: 'skipped' as const,
+          });
+          continue;
+        }
+
+        console.log(
+          `Processing user ${user.userId} with ${user.watchedLabelIds.length} watched labels`
+        );
+
+        let userEmailsProcessed = 0;
+        let userLeadsInserted = 0;
+        let userErrors = 0;
+
+        // Process each watched label for the user
+        for (const labelId of user.watchedLabelIds) {
+          try {
+            console.log(`Processing label ${labelId} for user ${user.userId}`);
+
+            // Step 1: Try history sync first
+            const historyResult = await syncByHistory({
+              userId: user.userId,
+              label: labelId,
+            });
+
+            if (historyResult.usedFallback) {
+              console.log(
+                `History sync not available for label ${labelId}, falling back to label scan`
+              );
+
+              // Step 2: Fall back to label scanning
+              const labelResult = await syncByLabel({
+                userId: user.userId,
+                label: labelId,
+                maxFetch: 25, // Process 25 messages on fallback
+              });
+
+              userEmailsProcessed += labelResult.scanned;
+              userLeadsInserted += labelResult.leadsInserted;
+              userErrors += labelResult.errors.length;
+            } else {
+              // History sync was successful
+              userEmailsProcessed += historyResult.processed;
+              userLeadsInserted += historyResult.leadsInserted;
+              userErrors += historyResult.errors.length;
+            }
+          } catch (error) {
+            console.error(
+              `Error processing label ${labelId} for user ${user.userId}:`,
+              error
+            );
+            userErrors++;
+          }
+        }
+
+        // Update sync state to mark completion
+        await upsertSyncState(user.userId, {
+          mode: 'cron',
+          watchedLabelIds: user.watchedLabelIds,
+          finishedAt: new Date(),
+          scanned: userEmailsProcessed,
+          newEmails: userEmailsProcessed,
+          jobsCreated: userLeadsInserted,
+          jobsUpdated: 0,
+          errors: userErrors,
+        });
+
+        totalEmailsProcessed += userEmailsProcessed;
+        totalLeadsInserted += userLeadsInserted;
+        totalErrors += userErrors;
+        usersProcessed++;
+
+        results.push({
+          userId: user.userId,
+          labels: user.watchedLabelIds,
+          method: 'history_api' as const,
+          summary: {
+            emailsProcessed: userEmailsProcessed,
+            leadsInserted: userLeadsInserted,
+            errors: userErrors,
+          },
+        });
+      } catch (error) {
+        console.error(`Error processing user ${user.userId}:`, error);
+        totalErrors++;
+        results.push({
+          userId: user.userId,
+          labels: user.watchedLabelIds,
+          method: 'error' as const,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    const response: ScheduledSyncResult = {
       success: true,
-      message: 'Gmail sync completed (history API)',
+      message: 'Scheduled Gmail sync completed',
       data: {
-        method: 'history_api',
-        userId,
-        label,
-        summary: historyResult,
+        totalUsers: usersWithSettings.length,
+        usersProcessed,
+        usersSkipped,
+        totalEmailsProcessed,
+        totalLeadsInserted,
+        totalErrors,
+        results,
         timestamp: new Date().toISOString(),
       },
     };
+
+    console.log('Scheduled sync completed:', response);
 
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   } catch (error) {
-    console.error('Gmail sync function error:', error);
+    console.error('Scheduled Gmail sync function error:', error);
 
-    const errorResponse: SyncResponse = {
+    const errorResponse: ScheduledSyncResult = {
       success: false,
       message: 'Failed to sync Gmail messages',
       data: {
-        method: 'label_scan',
-        userId: 'unknown',
-        label: 'unknown',
-        summary: { error: 'Sync failed' },
+        totalUsers: 0,
+        usersProcessed: 0,
+        usersSkipped: 0,
+        totalEmailsProcessed: 0,
+        totalLeadsInserted: 0,
+        totalErrors: 1,
+        results: [],
         timestamp: new Date().toISOString(),
       },
-      error: 'Failed to sync Gmail messages',
-      details: error instanceof Error ? error.message : 'Unknown error',
     };
 
     return {
