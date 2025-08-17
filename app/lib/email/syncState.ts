@@ -11,6 +11,13 @@ export interface SyncStateUpdate {
   lastHistoryId?: string;
   startedAt?: Date;
   finishedAt?: Date;
+  mode?: string;
+  watchedLabelIds?: string[];
+  scanned?: number;
+  newEmails?: number;
+  jobsCreated?: number;
+  jobsUpdated?: number;
+  errors?: number;
 }
 
 /**
@@ -70,17 +77,50 @@ export async function upsertSyncState(
       updateData.finishedAt = patch.finishedAt;
     }
 
+    if (patch.mode !== undefined) {
+      updateData.mode = patch.mode;
+    }
+
+    if (patch.watchedLabelIds !== undefined) {
+      updateData.watchedLabelIds = patch.watchedLabelIds;
+    }
+
+    if (patch.scanned !== undefined) {
+      updateData.scanned = patch.scanned;
+    }
+
+    if (patch.newEmails !== undefined) {
+      updateData.newEmails = patch.newEmails;
+    }
+
+    if (patch.jobsCreated !== undefined) {
+      updateData.jobsCreated = patch.jobsCreated;
+    }
+
+    if (patch.jobsUpdated !== undefined) {
+      updateData.jobsUpdated = patch.jobsUpdated;
+    }
+
+    if (patch.errors !== undefined) {
+      updateData.errors = patch.errors;
+    }
+
     // Note: syncStateTable doesn't have updatedAt column
 
     const [upsertedSyncState] = await db
       .insert(syncStateTable)
       .values({
         userId,
-        mode: 'manual', // Default mode, can be overridden
-        watchedLabelIds: [], // Default empty array
+        mode: patch.mode || 'manual',
+        watchedLabelIds: patch.watchedLabelIds || [],
         lastHistoryId: patch.lastHistoryId || null,
         startedAt: patch.startedAt || new Date(),
         finishedAt: patch.finishedAt || null,
+        scanned: patch.scanned || 0,
+        newEmails: patch.newEmails || 0,
+        jobsCreated: patch.jobsCreated || 0,
+        jobsUpdated: patch.jobsUpdated || 0,
+        errors: patch.errors || 0,
       })
       .onConflictDoUpdate({
         target: syncStateTable.userId,

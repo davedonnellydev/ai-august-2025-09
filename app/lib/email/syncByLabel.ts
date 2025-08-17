@@ -1,12 +1,9 @@
 import { getGmail } from '../google/gmailClient';
-import { extractPlainText, extractLinks, hashMessage } from './normalize';
-import { upsertEmailMessage, upsertEmailLinks } from './upsert';
-import {
-  extractMessageData,
-  calculateJobSignalScore,
-  extractHtmlFromPayload,
-} from './shared';
-import { gmail_v1 } from 'googleapis';
+import { extractPlainText, cleanHtml, hashMessage } from './normalize';
+import { upsertEmailMessage } from './upsert';
+import { extractAndInsertLeads } from './leadExtraction';
+import { extractMessageData, extractHtmlFromPayload } from './shared';
+import { upsertSyncState } from './syncState';
 
 export interface SyncByLabelOptions {
   userId: string;
@@ -18,7 +15,9 @@ export interface SyncSummary {
   scanned: number;
   inserted: number;
   updated: number;
-  linksCreated: number;
+  leadsInserted: number;
+  dedupedByUrl: number;
+  duplicatesFlagged: number;
   errors: string[];
 }
 
@@ -34,7 +33,9 @@ export async function syncByLabel({
     scanned: 0,
     inserted: 0,
     updated: 0,
-    linksCreated: 0,
+    leadsInserted: 0,
+    dedupedByUrl: 0,
+    duplicatesFlagged: 0,
     errors: [],
   };
 
@@ -74,6 +75,7 @@ export async function syncByLabel({
         if (!message.payload) {
           continue;
         }
+
         // Step 3: Extract header fields
         const headerData = extractMessageData(message);
 
@@ -82,32 +84,27 @@ export async function syncByLabel({
         const bodyHtmlRaw = extractHtmlFromPayload(message.payload);
 
         // Clean HTML if present (for storage)
-        let cleanHtml: string | undefined;
+        let cleanedHtml: string | undefined;
         if (bodyHtmlRaw) {
           try {
-            const { cleanHtml: clean } = await import('./normalize');
-            cleanHtml = clean(Buffer.from(bodyHtmlRaw, 'base64').toString());
+            cleanedHtml = cleanHtml(
+              Buffer.from(bodyHtmlRaw, 'base64').toString()
+            );
           } catch (error) {
             console.warn('Failed to clean HTML:', error);
           }
         }
 
-        // Extract labels and snippet
-        const labels = message.labelIds || [];
+        // Extract snippet
         const snippet = message.snippet || '';
 
-        // Step 5: Compute message hash and job signal score
+        // Step 5: Compute message hash
         const messageHash = hashMessage({
           from: headerData.fromEmail,
           subject: headerData.subject,
           sentAt: new Date(headerData.internalDate).toISOString(),
           bodyText: bodyText || '',
         });
-
-        const jobSignalScore = calculateJobSignalScore(
-          headerData.subject,
-          bodyText || ''
-        );
 
         // Step 6: Upsert email message
         const emailMessage = await upsertEmailMessage({
@@ -119,18 +116,14 @@ export async function syncByLabel({
           fromName: headerData.fromName,
           toEmails: headerData.toEmails,
           ccEmails: headerData.ccEmails,
-          bccEmails: headerData.bccEmails,
           subject: headerData.subject,
           snippet,
           sentAt: new Date(headerData.internalDate),
           receivedAt: new Date(headerData.internalDate),
           bodyText,
-          bodyHtmlClean: cleanHtml,
-          labels,
+          bodyHtml: cleanedHtml,
           messageHash,
-          isIncoming: true,
-          jobSignalScore,
-          parseStatus: 'unprocessed',
+          parseStatus: 'parsed',
         });
 
         // Track insert vs update
@@ -142,21 +135,26 @@ export async function syncByLabel({
           summary.updated++;
         }
 
-        // Step 7: Extract and upsert links from ORIGINAL HTML (before cleaning)
+        // Step 7: Extract and insert job leads
         if (bodyText || bodyHtmlRaw) {
-          const links = extractLinks({
-            html: bodyHtmlRaw
-              ? Buffer.from(bodyHtmlRaw, 'base64').toString()
-              : undefined,
-            text: bodyText,
-          });
-
-          if (links.length > 0) {
-            const upsertedLinks = await upsertEmailLinks(
+          try {
+            const leadResult = await extractAndInsertLeads(
+              userId,
               emailMessage.id,
-              links
+              bodyText || '',
+              bodyHtmlRaw
+                ? Buffer.from(bodyHtmlRaw, 'base64').toString()
+                : undefined,
+              label
             );
-            summary.linksCreated += upsertedLinks.length;
+
+            summary.leadsInserted += leadResult.leadsInserted;
+            summary.dedupedByUrl += leadResult.dedupedByUrl;
+            summary.duplicatesFlagged += leadResult.duplicatesFlagged;
+          } catch (error) {
+            const errorMsg = `Failed to extract leads from message ${messageId}: ${error}`;
+            console.error(errorMsg);
+            summary.errors.push(errorMsg);
           }
         }
       } catch (error) {
@@ -165,6 +163,18 @@ export async function syncByLabel({
         summary.errors.push(errorMsg);
       }
     }
+
+    // Step 8: Update sync state on success
+    await upsertSyncState(userId, {
+      mode: 'manual',
+      watchedLabelIds: [label],
+      finishedAt: new Date(),
+      scanned: summary.scanned,
+      newEmails: summary.inserted,
+      jobsCreated: summary.leadsInserted,
+      jobsUpdated: summary.updated,
+      errors: summary.errors.length,
+    });
   } catch (error) {
     const errorMsg = `Sync failed: ${error}`;
     console.error(errorMsg);

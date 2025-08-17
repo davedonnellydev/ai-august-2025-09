@@ -1,16 +1,9 @@
 import { getGmail } from '../google/gmailClient';
 import { getSyncState, upsertSyncState } from '../email/syncState';
-import {
-  extractPlainText,
-  extractLinks,
-  hashMessage,
-} from '../email/normalize';
-import { upsertEmailMessage, upsertEmailLinks } from '../email/upsert';
-import {
-  extractMessageData,
-  calculateJobSignalScore,
-  extractHtmlFromPayload,
-} from '../email/shared';
+import { extractPlainText, cleanHtml, hashMessage } from '../email/normalize';
+import { upsertEmailMessage } from '../email/upsert';
+import { extractAndInsertLeads } from '../email/leadExtraction';
+import { extractMessageData, extractHtmlFromPayload } from '../email/shared';
 import { gmail_v1 } from 'googleapis';
 
 export interface HistorySyncOptions {
@@ -23,7 +16,9 @@ export interface HistorySyncResult {
   processed: number;
   inserted: number;
   updated: number;
-  linksCreated: number;
+  leadsInserted: number;
+  dedupedByUrl: number;
+  duplicatesFlagged: number;
   errors: string[];
   newHistoryId?: string;
 }
@@ -34,10 +29,13 @@ export interface HistorySyncResult {
 async function processMessage(
   gmail: gmail_v1.Gmail,
   messageId: string,
-  userId: string
+  userId: string,
+  sourceLabelId: string
 ): Promise<{
   inserted: boolean;
-  linksCreated: number;
+  leadsInserted: number;
+  dedupedByUrl: number;
+  duplicatesFlagged: number;
 }> {
   // Fetch full message
   const messageResponse = await gmail.users.messages.get({
@@ -59,32 +57,25 @@ async function processMessage(
   const bodyHtmlRaw = extractHtmlFromPayload(message.payload);
 
   // Clean HTML if present (for storage)
-  let cleanHtml: string | undefined;
+  let cleanedHtml: string | undefined;
   if (bodyHtmlRaw) {
     try {
-      const { cleanHtml: clean } = await import('../email/normalize');
-      cleanHtml = clean(Buffer.from(bodyHtmlRaw, 'base64').toString());
+      cleanedHtml = cleanHtml(Buffer.from(bodyHtmlRaw, 'base64').toString());
     } catch (error) {
       console.warn('Failed to clean HTML:', error);
     }
   }
 
-  // Extract labels and snippet
-  const labels = message.labelIds || [];
+  // Extract snippet
   const snippet = message.snippet || '';
 
-  // Compute message hash and job signal score
+  // Compute message hash
   const messageHash = hashMessage({
     from: headerData.fromEmail,
     subject: headerData.subject,
     sentAt: new Date(headerData.internalDate).toISOString(),
     bodyText: bodyText || '',
   });
-
-  const jobSignalScore = calculateJobSignalScore(
-    headerData.subject,
-    bodyText || ''
-  );
 
   // Upsert email message
   const emailMessage = await upsertEmailMessage({
@@ -96,41 +87,53 @@ async function processMessage(
     fromName: headerData.fromName,
     toEmails: headerData.toEmails,
     ccEmails: headerData.ccEmails,
-    bccEmails: headerData.bccEmails,
     subject: headerData.subject,
     snippet,
     sentAt: new Date(headerData.internalDate),
     receivedAt: new Date(headerData.internalDate),
     bodyText,
-    bodyHtmlClean: cleanHtml,
-    labels,
+    bodyHtml: cleanedHtml,
     messageHash,
-    isIncoming: true,
-    jobSignalScore,
-    parseStatus: 'unprocessed',
+    parseStatus: 'parsed',
   });
 
   // Track insert vs update
   const isInserted =
     emailMessage.createdAt.getTime() === emailMessage.updatedAt.getTime();
 
-  // Extract and upsert links from ORIGINAL HTML (before cleaning)
-  let linksCreated = 0;
-  if (bodyText || bodyHtmlRaw) {
-    const links = extractLinks({
-      html: bodyHtmlRaw
-        ? Buffer.from(bodyHtmlRaw, 'base64').toString()
-        : undefined,
-      text: bodyText,
-    });
+  // Extract and insert job leads
+  let leadsInserted = 0;
+  let dedupedByUrl = 0;
+  let duplicatesFlagged = 0;
 
-    if (links.length > 0) {
-      const upsertedLinks = await upsertEmailLinks(emailMessage.id, links);
-      linksCreated = upsertedLinks.length;
+  if (bodyText || bodyHtmlRaw) {
+    try {
+      const leadResult = await extractAndInsertLeads(
+        userId,
+        emailMessage.id,
+        bodyText || '',
+        bodyHtmlRaw ? Buffer.from(bodyHtmlRaw, 'base64').toString() : undefined,
+        sourceLabelId
+      );
+
+      leadsInserted = leadResult.leadsInserted;
+      dedupedByUrl = leadResult.dedupedByUrl;
+      duplicatesFlagged = leadResult.duplicatesFlagged;
+    } catch (error) {
+      console.error(
+        `Failed to extract leads from message ${messageId}:`,
+        error
+      );
+      // Continue processing other messages
     }
   }
 
-  return { inserted: isInserted, linksCreated };
+  return {
+    inserted: isInserted,
+    leadsInserted,
+    dedupedByUrl,
+    duplicatesFlagged,
+  };
 }
 
 /**
@@ -145,7 +148,9 @@ export async function syncByHistory({
     processed: 0,
     inserted: 0,
     updated: 0,
-    linksCreated: 0,
+    leadsInserted: 0,
+    dedupedByUrl: 0,
+    duplicatesFlagged: 0,
     errors: [],
   };
 
@@ -207,11 +212,8 @@ export async function syncByHistory({
     // Step 4: Process each message
     for (const messageId of messageIds) {
       try {
-        const { inserted, linksCreated } = await processMessage(
-          gmail,
-          messageId,
-          userId
-        );
+        const { inserted, leadsInserted, dedupedByUrl, duplicatesFlagged } =
+          await processMessage(gmail, messageId, userId, label);
 
         if (inserted) {
           result.inserted++;
@@ -219,7 +221,9 @@ export async function syncByHistory({
           result.updated++;
         }
 
-        result.linksCreated += linksCreated;
+        result.leadsInserted += leadsInserted;
+        result.dedupedByUrl += dedupedByUrl;
+        result.duplicatesFlagged += duplicatesFlagged;
         result.processed++;
       } catch (error) {
         const errorMsg = `Failed to process message ${messageId}: ${error}`;
