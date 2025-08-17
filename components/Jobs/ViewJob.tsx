@@ -24,7 +24,7 @@ interface ViewJobProps {
   jobId: string;
   userId: string;
   onBack: () => void;
-  onEdit: () => void;
+  onEdit?: (job: Lead) => void;
 }
 
 interface Lead {
@@ -48,7 +48,7 @@ interface Lead {
   updatedAt: string;
 }
 
-export function ViewJob({ jobId, userId, onBack, onEdit }: ViewJobProps) {
+export function ViewJob({ jobId, userId: _userId, onBack, onEdit: _onEdit }: ViewJobProps) {
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -1,160 +1,206 @@
-/**
- * Test file demonstrating usage of sync state utilities
- * This file shows how to use the getSyncState and upsertSyncState functions
- */
-
+import { jest } from '@jest/globals';
 import { getSyncState, upsertSyncState, createSyncState } from './syncState';
 
-// Example usage functions
-export async function exampleSyncStateUsage() {
-  const userId = 'test-user-123';
+// Mock the database module
+jest.mock('../../db', () => ({
+  db: {
+    select: jest.fn(),
+    insert: jest.fn(),
+    update: jest.fn(),
+    from: jest.fn(),
+    where: jest.fn(),
+    values: jest.fn(),
+    onConflictDoUpdate: jest.fn(),
+    returning: jest.fn(),
+    eq: jest.fn(),
+    and: jest.fn(),
+  },
+  syncStateTable: {
+    userId: 'userId',
+    lastHistoryId: 'lastHistoryId',
+    startedAt: 'startedAt',
+    finishedAt: 'finishedAt',
+    mode: 'mode',
+    watchedLabelIds: 'watchedLabelIds',
+    scanned: 'scanned',
+    newEmails: 'newEmails',
+    jobsCreated: 'jobsCreated',
+    jobsUpdated: 'jobsUpdated',
+    errors: 'errors',
+  },
+}));
 
-  try {
-    // Example 1: Get current sync state
-    console.log('=== Getting current sync state ===');
-    const currentState = await getSyncState(userId);
+// Mock drizzle-orm
+jest.mock('drizzle-orm', () => ({
+  eq: jest.fn(),
+  and: jest.fn(),
+}));
 
-    if (currentState) {
-      console.log('Current sync state:', {
-        lastHistoryId: currentState.lastHistoryId || 'none',
-        startedAt: currentState.startedAt.toISOString(),
-        finishedAt: currentState.finishedAt?.toISOString() || 'not finished',
+describe('syncState', () => {
+  const mockUserId = 'test-user-123';
+  let mockDb: any;
+  let mockSyncStateTable: any;
+  let mockEq: any;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    
+    // Get mocked modules
+    const dbModule = await import('../../db');
+    const drizzleModule = await import('drizzle-orm');
+    
+    mockDb = dbModule.db;
+    mockSyncStateTable = dbModule.syncStateTable;
+    mockEq = drizzleModule.eq;
+
+    // Setup default mock implementations
+    mockDb.select.mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue([]),
+        }),
+      }),
+    });
+
+    mockDb.insert.mockReturnValue({
+      values: jest.fn().mockReturnValue({
+        onConflictDoUpdate: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([]),
+        }),
+      }),
+    });
+
+    mockDb.update.mockReturnValue({
+      set: jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([]),
+        }),
+      }),
+    });
+
+    mockEq.mockReturnValue('eq_value');
+  });
+
+  describe('getSyncState', () => {
+    it('should return null when no sync state exists', async () => {
+      const result = await getSyncState(mockUserId);
+
+      expect(result).toBeNull();
+      expect(mockDb.select).toHaveBeenCalledWith({
+        lastHistoryId: mockSyncStateTable.lastHistoryId,
+        startedAt: mockSyncStateTable.startedAt,
+        finishedAt: mockSyncStateTable.finishedAt,
       });
-    } else {
-      console.log('No sync state found for user');
-    }
-
-    // Example 2: Start a new sync operation
-    console.log('\n=== Starting new sync operation ===');
-    const syncStartState = await upsertSyncState(userId, {
-      startedAt: new Date(),
-      finishedAt: undefined, // Clear finished time when starting
     });
 
-    console.log('Sync started:', {
-      startedAt: syncStartState.startedAt.toISOString(),
-      finishedAt: syncStartState.finishedAt
-        ? 'should be undefined'
-        : 'undefined (correct)',
-    });
-
-    // Example 3: Update with history ID during sync
-    console.log('\n=== Updating with history ID ===');
-    const historyId = 'history_12345';
-    const withHistoryState = await upsertSyncState(userId, {
-      lastHistoryId: historyId,
-    });
-
-    console.log('Updated with history ID:', {
-      lastHistoryId: withHistoryState.lastHistoryId,
-      startedAt: withHistoryState.startedAt.toISOString(),
-    });
-
-    // Example 4: Mark sync as finished
-    console.log('\n=== Marking sync as finished ===');
-    const finishedState = await upsertSyncState(userId, {
-      finishedAt: new Date(),
-    });
-
-    console.log('Sync finished:', {
-      lastHistoryId: finishedState.lastHistoryId,
-      startedAt: finishedState.startedAt.toISOString(),
-      finishedAt: finishedState.finishedAt?.toISOString(),
-    });
-
-    // Example 5: Create initial sync state (if none exists)
-    console.log('\n=== Creating initial sync state ===');
-    const initialState = await createSyncState(userId, 'initial_history_999');
-
-    console.log('Initial state created:', {
-      lastHistoryId: initialState.lastHistoryId,
-      startedAt: initialState.startedAt.toISOString(),
-      finishedAt: initialState.finishedAt || 'null (correct)',
-    });
-
-    return {
-      success: true,
-      finalState: finishedState,
-    };
-  } catch (error) {
-    console.error('Error in sync state example:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-// Example of checking if a sync is in progress
-export async function isSyncInProgress(userId: string): Promise<boolean> {
-  try {
-    const state = await getSyncState(userId);
-
-    if (!state) {
-      return false; // No sync state means no sync in progress
-    }
-
-    // If startedAt exists but finishedAt is null/undefined, sync is in progress
-    return state.startedAt && !state.finishedAt;
-  } catch (error) {
-    console.error('Error checking sync status:', error);
-    return false;
-  }
-}
-
-// Example of getting the last successful sync time
-export async function getLastSuccessfulSyncTime(
-  userId: string
-): Promise<Date | null> {
-  try {
-    const state = await getSyncState(userId);
-
-    if (!state || !state.finishedAt) {
-      return null; // No successful sync found
-    }
-
-    return state.finishedAt;
-  } catch (error) {
-    console.error('Error getting last sync time:', error);
-    return null;
-  }
-}
-
-// Example of getting sync statistics
-export async function getSyncStats(userId: string) {
-  try {
-    const state = await getSyncState(userId);
-
-    if (!state) {
-      return {
-        hasSyncHistory: false,
-        lastSyncTime: null,
-        lastHistoryId: null,
-        isCurrentlySyncing: false,
+    it('should return sync state when it exists', async () => {
+      const mockState = {
+        lastHistoryId: 'history_123',
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        finishedAt: new Date('2024-01-01T01:00:00Z'),
       };
-    }
 
-    const now = new Date();
-    const isCurrentlySyncing = state.startedAt && !state.finishedAt;
-    const lastSyncTime = state.finishedAt;
+      mockDb.select.mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([mockState]),
+          }),
+        }),
+      });
 
-    return {
-      hasSyncHistory: true,
-      lastSyncTime,
-      lastHistoryId: state.lastHistoryId,
-      isCurrentlySyncing,
-      timeSinceLastSync: lastSyncTime
-        ? now.getTime() - lastSyncTime.getTime()
-        : null,
-    };
-  } catch (error) {
-    console.error('Error getting sync stats:', error);
-    return {
-      hasSyncHistory: false,
-      lastSyncTime: null,
-      lastHistoryId: null,
-      isCurrentlySyncing: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
+      const result = await getSyncState(mockUserId);
+
+      expect(result).toEqual(mockState);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      mockDb.select.mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockRejectedValue(new Error('Database error')),
+          }),
+        }),
+      });
+
+      const result = await getSyncState(mockUserId);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('upsertSyncState', () => {
+    it('should create new sync state when none exists', async () => {
+      const mockNewState = {
+        lastHistoryId: 'history_123',
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        finishedAt: undefined,
+      };
+
+      mockDb.insert.mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          onConflictDoUpdate: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([mockNewState]),
+          }),
+        }),
+      });
+
+      const result = await upsertSyncState(mockUserId, mockNewState);
+
+      expect(result).toEqual(mockNewState);
+      expect(mockDb.insert).toHaveBeenCalledWith(mockSyncStateTable);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      mockDb.insert.mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          onConflictDoUpdate: jest.fn().mockReturnValue({
+            returning: jest.fn().mockRejectedValue(new Error('Database error')),
+          }),
+        }),
+      });
+
+      await expect(
+        upsertSyncState(mockUserId, {
+          startedAt: new Date(),
+        })
+      ).rejects.toThrow('Database error');
+    });
+  });
+
+  describe('createSyncState', () => {
+    it('should create initial sync state', async () => {
+      const mockNewState = {
+        lastHistoryId: 'initial_history',
+        startedAt: new Date('2024-01-01T00:00:00Z'),
+        finishedAt: undefined,
+      };
+
+      mockDb.insert.mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          onConflictDoUpdate: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([mockNewState]),
+          }),
+        }),
+      });
+
+      const result = await createSyncState(mockUserId, 'initial_history');
+
+      expect(result).toEqual(mockNewState);
+      expect(mockDb.insert).toHaveBeenCalledWith(mockSyncStateTable);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      mockDb.insert.mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          onConflictDoUpdate: jest.fn().mockReturnValue({
+            returning: jest.fn().mockRejectedValue(new Error('Database error')),
+          }),
+        }),
+      });
+
+      await expect(
+        createSyncState(mockUserId, 'initial_history')
+      ).rejects.toThrow('Database error');
+    });
+  });
+});

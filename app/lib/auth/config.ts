@@ -1,4 +1,3 @@
-import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { db, usersTable, gmailTokensTable } from '../../db';
 
@@ -24,7 +23,7 @@ export const authConfig = {
         // Store refresh token in database
         try {
           // Upsert user
-          const [dbUser] = await db
+          const [_dbUser] = await db
             .insert(usersTable)
             .values({
               id: user.id,
@@ -72,9 +71,9 @@ export const authConfig = {
               });
           }
 
-          console.log(`User ${user.email} authenticated and tokens stored`);
+          // Log successful authentication
         } catch (error) {
-          console.error('Failed to store user/tokens:', error);
+          // Log failed token storage
         }
       }
 

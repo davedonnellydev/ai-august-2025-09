@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/app/lib/auth/session';
+import { auth } from '../../../auth';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const userId = await getCurrentUserId();
+    const session = await auth();
 
-    if (!userId) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         {
           authenticated: false,
@@ -17,17 +17,24 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       authenticated: true,
-      userId,
+      userId: session.user.id,
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+      },
       message: 'Session found',
     });
   } catch (error) {
-    console.error('Session endpoint error:', error);
+    console.error('Session API error:', error);
+    
+    // Return 401 for auth errors, not 500
     return NextResponse.json(
       {
         authenticated: false,
-        error: 'Failed to get session',
+        message: 'Authentication check failed',
       },
-      { status: 500 }
+      { status: 401 }
     );
   }
 }

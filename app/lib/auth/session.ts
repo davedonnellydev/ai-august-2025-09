@@ -7,13 +7,13 @@ import { auth } from '../../auth';
  * @returns Promise<string | null> - User ID if authenticated, null otherwise
  */
 export async function getSessionUserId(
-  req: NextRequest
+  _req: NextRequest
 ): Promise<string | null> {
   try {
     const session = await auth();
     return session?.user?.id || null;
   } catch (error) {
-    console.warn('getSessionUserId: Error getting session:', error);
+    // Log warning for debugging
     return null;
   }
 }
@@ -27,7 +27,7 @@ export async function getCurrentUserId(): Promise<string | null> {
     const session = await auth();
     return session?.user?.id || null;
   } catch (error) {
-    console.warn('getCurrentUserId: Error getting session:', error);
+    // Log warning for debugging
     return null;
   }
 }

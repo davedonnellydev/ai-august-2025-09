@@ -2,12 +2,8 @@ import '@mantine/core/styles.css';
 import '@mantine/charts/styles.css';
 
 import React from 'react';
-import {
-  ColorSchemeScript,
-  mantineHtmlProps,
-  MantineProvider,
-} from '@mantine/core';
-import { theme } from '../theme';
+import { ColorSchemeScript, mantineHtmlProps } from '@mantine/core';
+import { Providers } from './providers';
 
 export const metadata = {
   title: 'Job Application Manager',
@@ -26,7 +22,7 @@ export default function RootLayout({ children }: { children: any }) {
         />
       </head>
       <body>
-        <MantineProvider theme={theme}>{children}</MantineProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

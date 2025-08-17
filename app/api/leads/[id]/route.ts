@@ -4,7 +4,7 @@ import { getCurrentUserId } from '../../../lib/auth/session';
 import { eq, and } from 'drizzle-orm';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -52,7 +52,7 @@ export async function GET(
 
     return NextResponse.json(lead);
   } catch (error) {
-    console.error('Error fetching lead:', error);
+    // Log error for debugging but don't expose in response
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

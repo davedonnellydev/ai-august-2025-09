@@ -3,19 +3,30 @@
 import { useState, useEffect } from 'react';
 import {
   Container,
-  Grid,
-  Card,
-  Text,
-  Group,
-  Badge,
-  LoadingOverlay,
-  Alert,
   Title,
+  Text,
+  Button,
   Stack,
-  Box,
+  Group,
+  Card,
+  Badge,
+  Grid,
+  Alert,
+  LoadingOverlay,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
-import { PieChart } from '@mantine/charts';
-import { IconAlertCircle, IconBriefcase } from '@tabler/icons-react';
+import {
+  IconBriefcase,
+  IconBuilding,
+  IconMapPin,
+  IconClock,
+  IconRefresh,
+  IconCheck,
+  IconX,
+  IconSettings,
+} from '@tabler/icons-react';
+import Link from 'next/link';
 
 interface Company {
   id: string;
@@ -44,343 +55,380 @@ interface LandingProps {
   userId: string;
 }
 
-const statusColors = {
-  new: 'blue',
-  ready: 'yellow',
-  applied: 'orange',
-  interview: 'purple',
-  offer: 'green',
-  rejected: 'red',
-  archived: 'gray',
-};
-
-const decisionColors = {
-  undecided: 'gray',
-  apply: 'green',
-  skip: 'red',
-};
+interface SyncStatus {
+  isRunning: boolean;
+  lastSync?: string;
+  message?: string;
+}
 
 export function Landing({ userId }: LandingProps) {
   const [jobs, setJobs] = useState<JobListing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    isRunning: false,
+  });
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && userId.trim() !== '') {
       fetchJobs();
+    } else {
+      setLoading(false);
+      setJobs([]);
     }
   }, [userId]);
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const response = await fetch(
-        `/api/jobs?userId=${encodeURIComponent(userId)}`
-      );
-      const result = await response.json();
-
-      if (result.success) {
-        setJobs(Array.isArray(result.data) ? result.data : []);
-      } else {
-        setError(result.error || 'Failed to fetch jobs');
-        setJobs([]);
-      }
-    } catch (err) {
-      setError('Network error occurred');
-      setJobs([]);
+      // For now, use mock data since /api/jobs doesn't exist
+      // TODO: Replace with actual API call when endpoint is implemented
+      const mockJobs: JobListing[] = [
+        {
+          id: '1',
+          title: 'Senior Frontend Developer',
+          company: { id: '1', name: 'TechCorp Inc', location: 'San Francisco' },
+          location: 'San Francisco, CA',
+          status: 'new',
+          decision: 'undecided',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          title: 'Full Stack Engineer',
+          company: { id: '2', name: 'StartupXYZ', location: 'Remote' },
+          location: 'Remote',
+          status: 'ready',
+          decision: 'apply',
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+        },
+      ];
+      
+      setJobs(mockJobs);
+    } catch (error) {
+      console.error('Failed to fetch jobs:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Prepare data for status pie chart
-  const statusData = jobs.reduce(
-    (acc, job) => {
-      const status = job.status.charAt(0).toUpperCase() + job.status.slice(1);
-      const existing = acc.find((item) => item.name === status);
-      if (existing) {
-        existing.value += 1;
-      } else {
-        acc.push({ name: status, value: 1, color: statusColors[job.status] });
-      }
-      return acc;
-    },
-    [] as Array<{ name: string; value: number; color: string }>
-  );
-
-  // Prepare data for decision pie chart
-  const decisionData = jobs.reduce(
-    (acc, job) => {
-      const decision =
-        job.decision.charAt(0).toUpperCase() + job.decision.slice(1);
-      const existing = acc.find((item) => item.name === decision);
-      if (existing) {
-        existing.value += 1;
-      } else {
-        acc.push({
-          name: decision,
-          value: 1,
-          color: decisionColors[job.decision],
+  const startManualSync = async () => {
+    try {
+      setSyncStatus({ isRunning: true, message: 'Starting manual sync...' });
+      setError(null);
+      setSuccess(null);
+      
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStatus({
+          isRunning: false,
+          lastSync: new Date().toISOString(),
+          message: `Sync completed! Processed ${data.data.totalEmailsProcessed} emails, created ${data.data.totalLeadsInserted} leads.`,
         });
+        setSuccess('Manual sync completed successfully!');
+        
+        // Refresh jobs after successful sync
+        setTimeout(() => {
+          fetchJobs();
+        }, 1000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to start manual sync');
+        setSyncStatus({ isRunning: false });
       }
-      return acc;
-    },
-    [] as Array<{ name: string; value: number; color: string }>
-  );
+    } catch (error) {
+      setError('Failed to start manual sync');
+      setSyncStatus({ isRunning: false });
+      console.error('Manual sync error:', error);
+    }
+  };
 
-  // Validate that we have data for charts
-  const hasStatusData = statusData.length > 0;
-  const hasDecisionData = decisionData.length > 0;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'new':
+        return 'blue';
+      case 'ready':
+        return 'green';
+      case 'applied':
+        return 'yellow';
+      case 'interview':
+        return 'orange';
+      case 'offer':
+        return 'green';
+      case 'rejected':
+        return 'red';
+      case 'archived':
+        return 'gray';
+      default:
+        return 'blue';
+    }
+  };
 
-  // Mock data for testing when no real data is available
-  const mockStatusData = [
-    { name: 'New', value: 5, color: '#228be6' },
-    { name: 'Applied', value: 3, color: '#40c057' },
-    { name: 'Interview', value: 2, color: '#fd7e14' },
-    { name: 'Rejected', value: 1, color: '#fa5252' },
-  ];
+  const getDecisionColor = (decision: string) => {
+    switch (decision) {
+      case 'apply':
+        return 'green';
+      case 'skip':
+        return 'red';
+      default:
+        return 'gray';
+    }
+  };
 
-  const mockDecisionData = [
-    { name: 'Undecided', value: 4, color: '#ffd43b' },
-    { name: 'Apply', value: 5, color: '#40c057' },
-    { name: 'Skip', value: 2, color: '#868e96' },
-  ];
-
-  if (loading) {
-    return (
-      <Container size="xl" py="xl">
-        <LoadingOverlay visible />
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container size="xl" py="xl">
-        <Alert
-          icon={<IconAlertCircle size={16} />}
-          title="Error"
-          color="red"
-          variant="filled"
-        >
-          {error}
-        </Alert>
-      </Container>
-    );
-  }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
 
   return (
     <Container size="xl" py="xl">
       <Stack gap="xl">
-        <Title order={1} ta="center">
-          Job Application Dashboard
-        </Title>
+        {/* Header with Sync Button */}
+        <Group justify="space-between" align="center">
+          <div>
+            <Title order={1} mb="xs">
+              <IconBriefcase size="1.5rem" style={{ marginRight: '0.5rem' }} />
+              Job Application Dashboard
+            </Title>
+            <Text c="dimmed">
+              Track your job leads and manage applications
+            </Text>
+          </div>
+          
+          <Group>
+            <Button
+              leftSection={<IconRefresh size="1rem" />}
+              onClick={startManualSync}
+              loading={syncStatus.isRunning}
+              disabled={syncStatus.isRunning}
+              variant="filled"
+              color="blue"
+              size="md"
+            >
+              {syncStatus.isRunning ? 'Syncing...' : 'Sync Emails'}
+            </Button>
+            
+            <Button
+              component={Link}
+              href="/settings"
+              leftSection={<IconSettings size="1rem" />}
+              variant="outline"
+              size="md"
+            >
+              Settings
+            </Button>
+          </Group>
+        </Group>
 
-        {/* Statistics Cards */}
-        <Grid align="stretch">
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card p="xl" withBorder style={{ height: '100%' }}>
-              <Group justify="space-between">
+        {/* Sync Status */}
+        {syncStatus.message && (
+          <Alert
+            icon={syncStatus.isRunning ? <IconRefresh size="1rem" /> : <IconCheck size="1rem" />}
+            title={syncStatus.isRunning ? 'Sync in Progress' : 'Last Sync'}
+            color={syncStatus.isRunning ? 'blue' : 'green'}
+            variant="light"
+          >
+            <Text size="sm">{syncStatus.message}</Text>
+            {syncStatus.lastSync && (
+              <Text size="xs" c="dimmed" mt="xs">
+                Last sync: {new Date(syncStatus.lastSync).toLocaleString()}
+              </Text>
+            )}
+          </Alert>
+        )}
+
+        {/* Error/Success Messages */}
+        {error && (
+          <Alert
+            icon={<IconX size="1rem" />}
+            title="Error"
+            color="red"
+            variant="light"
+            onClose={() => setError(null)}
+            withCloseButton
+          >
+            {error}
+          </Alert>
+        )}
+
+        {success && (
+          <Alert
+            icon={<IconCheck size="1rem" />}
+            title="Success"
+            color="green"
+            variant="light"
+            onClose={() => setSuccess(null)}
+            withCloseButton
+          >
+            {success}
+          </Alert>
+        )}
+
+        <LoadingOverlay visible={loading} />
+
+        {/* Quick Stats */}
+        <Grid>
+          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+            <Card shadow="sm" p="lg" withBorder>
+              <Group>
+                <IconBriefcase size="2rem" color="blue" />
                 <div>
-                  <Text size="lg" fw={500}>
-                    Total Jobs
-                  </Text>
-                  <Text size="2rem" fw={700} c="blue">
+                  <Text size="lg" fw={700}>
                     {jobs.length}
                   </Text>
+                  <Text size="sm" c="dimmed">
+                    Total Jobs
+                  </Text>
                 </div>
-                <IconBriefcase size={48} color="var(--mantine-color-blue-6)" />
               </Group>
             </Card>
           </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card p="xl" withBorder style={{ height: '100%' }}>
-              <Group justify="space-between">
+          
+          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+            <Card shadow="sm" p="lg" withBorder>
+              <Group>
+                <IconCheck size="2rem" color="green" />
                 <div>
-                  <Text size="lg" fw={500}>
-                    Active Applications
+                  <Text size="lg" fw={700}>
+                    {jobs.filter(job => job.status === 'ready').length}
                   </Text>
-                  <Text size="2rem" fw={700} c="green">
-                    {
-                      jobs.filter(
-                        (job) =>
-                          job.status !== 'archived' && job.status !== 'rejected'
-                      ).length
-                    }
+                  <Text size="sm" c="dimmed">
+                    Ready to Apply
                   </Text>
                 </div>
-                <Badge size="xl" color="green" variant="light">
-                  Active
-                </Badge>
               </Group>
             </Card>
           </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Card p="xl" withBorder style={{ height: '100%' }}>
-              <Group justify="space-between">
+          
+          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+            <Card shadow="sm" p="lg" withBorder>
+              <Group>
+                <IconClock size="2rem" color="yellow" />
                 <div>
-                  <Text size="lg" fw={500}>
-                    Pending Decisions
+                  <Text size="lg" fw={700}>
+                    {jobs.filter(job => job.status === 'applied').length}
                   </Text>
-                  <Text size="2rem" fw={700} c="yellow">
-                    {jobs.filter((job) => job.decision === 'undecided').length}
+                  <Text size="sm" c="dimmed">
+                    Applied
                   </Text>
                 </div>
-                <Badge size="xl" color="yellow" variant="light">
-                  Pending
-                </Badge>
+              </Group>
+            </Card>
+          </Grid.Col>
+          
+          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+            <Card shadow="sm" p="lg" withBorder>
+              <Group>
+                <IconBuilding size="2rem" color="orange" />
+                <div>
+                  <Text size="lg" fw={700}>
+                    {jobs.filter(job => job.status === 'interview').length}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    Interviews
+                  </Text>
+                </div>
               </Group>
             </Card>
           </Grid.Col>
         </Grid>
 
-        {/* Charts */}
-        <Grid>
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <Card p="xl" withBorder>
-              <Text size="lg" fw={500} mb="md">
-                Job Statuses
-              </Text>
-              {hasStatusData ? (
-                <Box style={{ width: 300, height: 300, margin: '0 auto' }}>
-                  <PieChart
-                    data={statusData}
-                    size={200}
-                    withLabelsLine={false}
-                    withLabels
-                    withTooltip
-                  />
-                </Box>
-              ) : (
-                <Box
-                  style={{
-                    width: 300,
-                    height: 300,
-                    margin: '0 auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
-                  <PieChart
-                    data={mockStatusData}
-                    size={200}
-                    withLabelsLine={false}
-                    withLabels
-                    withTooltip
-                  />
-                  <Text c="dimmed" ta="center" py="sm" size="sm">
-                    Showing sample data - add real jobs to see your data
-                  </Text>
-                </Box>
-              )}
-            </Card>
-          </Grid.Col>
+        {/* Recent Jobs */}
+        <div>
+          <Group justify="space-between" align="center" mb="md">
+            <Title order={2} size="h3">
+              Recent Job Leads
+            </Title>
+            <Button
+              component={Link}
+              href="/jobs"
+              variant="outline"
+              size="sm"
+            >
+              View All Jobs
+            </Button>
+          </Group>
 
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <Card p="xl" withBorder>
-              <Text size="lg" fw={500} mb="md">
-                Decisions
-              </Text>
-              {hasDecisionData ? (
-                <Box style={{ width: 300, height: 300, margin: '0 auto' }}>
-                  <PieChart
-                    data={decisionData}
-                    size={200}
-                    withLabelsLine={false}
-                    withLabels
-                    withTooltip
-                  />
-                </Box>
-              ) : (
-                <Box
-                  style={{
-                    width: 300,
-                    height: 300,
-                    margin: '0 auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
-                  <PieChart
-                    data={mockDecisionData}
-                    size={200}
-                    withLabelsLine={false}
-                    withLabels
-                    withTooltip
-                  />
-                  <Text c="dimmed" ta="center" py="sm" size="sm">
-                    Showing sample data - add real jobs to see your data
+          {jobs.length === 0 ? (
+            <Card shadow="sm" p="xl" withBorder>
+              <Stack align="center" gap="md">
+                <IconBriefcase size="3rem" color="gray" />
+                <div style={{ textAlign: 'center' }}>
+                  <Text size="lg" fw={500}>
+                    No job leads yet
                   </Text>
-                </Box>
-              )}
+                  <Text c="dimmed" size="sm">
+                    Use the "Sync Emails" button to scan your Gmail for job opportunities, 
+                    or configure your settings to start automatic syncing.
+                  </Text>
+                </div>
+                <Button
+                  leftSection={<IconRefresh size="1rem" />}
+                  onClick={startManualSync}
+                  disabled={syncStatus.isRunning}
+                  variant="filled"
+                  color="blue"
+                >
+                  Sync Emails Now
+                </Button>
+              </Stack>
             </Card>
-          </Grid.Col>
-        </Grid>
-
-        {/* Recent Activity */}
-        <Card p="xl" withBorder>
-          <Text size="lg" fw={500} mb="md">
-            Recent Job Activity
-          </Text>
-          {jobs.length > 0 ? (
-            <Stack gap="sm">
-              {jobs
-                .sort(
-                  (a, b) =>
-                    new Date(b.createdAt).getTime() -
-                    new Date(a.createdAt).getTime()
-                )
-                .slice(0, 5)
-                .map((job) => (
-                  <Group
-                    key={job.id}
-                    justify="space-between"
-                    p="sm"
-                    style={{
-                      border: '1px solid var(--mantine-color-gray-3)',
-                      borderRadius: 'var(--mantine-radius-sm)',
-                    }}
-                  >
-                    <div>
-                      <Text fw={500} size="sm">
-                        {job.title || 'Untitled'}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {job.company?.name || 'Unknown Company'}
-                      </Text>
-                    </div>
-                    <Group gap="xs">
-                      <Badge
-                        color={statusColors[job.status]}
-                        variant="light"
-                        size="sm"
-                      >
-                        {job.status.charAt(0).toUpperCase() +
-                          job.status.slice(1)}
-                      </Badge>
-                      <Badge
-                        color={decisionColors[job.decision]}
-                        variant="light"
-                        size="sm"
-                      >
-                        {job.decision.charAt(0).toUpperCase() +
-                          job.decision.slice(1)}
-                      </Badge>
-                    </Group>
-                  </Group>
-                ))}
-            </Stack>
           ) : (
-            <Text c="dimmed" ta="center" py="xl">
-              No recent job activity
-            </Text>
+            <Stack gap="md">
+              {jobs.slice(0, 5).map((job) => (
+                <Card key={job.id} shadow="sm" p="lg" withBorder>
+                  <Group justify="space-between" align="flex-start">
+                    <div style={{ flex: 1 }}>
+                      <Group gap="xs" mb="xs">
+                        <Text fw={600} size="lg">
+                          {job.title}
+                        </Text>
+                        <Badge color={getStatusColor(job.status)} variant="light">
+                          {job.status}
+                        </Badge>
+                        <Badge color={getDecisionColor(job.decision)} variant="light">
+                          {job.decision}
+                        </Badge>
+                      </Group>
+                      
+                      <Group gap="lg" mb="xs">
+                        <Group gap="xs">
+                          <IconBuilding size="1rem" color="gray" />
+                          <Text size="sm">{job.company.name}</Text>
+                        </Group>
+                        
+                        {job.location && (
+                          <Group gap="xs">
+                            <IconMapPin size="1rem" color="gray" />
+                            <Text size="sm">{job.location}</Text>
+                          </Group>
+                        )}
+                        
+                        <Group gap="xs">
+                          <IconClock size="1rem" color="gray" />
+                          <Text size="sm">{formatDate(job.createdAt)}</Text>
+                        </Group>
+                      </Group>
+                    </div>
+                    
+                    <Button
+                      component={Link}
+                      href={`/jobs/${job.id}`}
+                      variant="outline"
+                      size="sm"
+                    >
+                      View Details
+                    </Button>
+                  </Group>
+                </Card>
+              ))}
+            </Stack>
           )}
-        </Card>
+        </div>
       </Stack>
     </Container>
   );

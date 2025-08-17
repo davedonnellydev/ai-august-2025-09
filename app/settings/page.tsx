@@ -1,22 +1,37 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Container,
-  Title,
   Paper,
-  MultiSelect,
-  NumberInput,
-  Textarea,
-  Button,
-  Group,
-  Stack,
+  Title,
   Text,
+  Button,
+  Stack,
+  Group,
+  Divider,
   Alert,
   LoadingOverlay,
+  Select,
+  Textarea,
+  NumberInput,
+  Badge,
+  Switch,
+  Card,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
-import { useSession } from 'next-auth/react';
-import { IconAlertCircle, IconCheck, IconRefresh } from '@tabler/icons-react';
+import {
+  IconRefresh,
+  IconSettings,
+  IconMail,
+  IconClock,
+  IconEdit,
+  IconRefreshAlert,
+  IconCheck,
+  IconX,
+} from '@tabler/icons-react';
 
 interface GmailLabel {
   id: string;
@@ -30,28 +45,33 @@ interface UserSettings {
   customInstructions: string;
 }
 
+interface SyncStatus {
+  isRunning: boolean;
+  lastSync?: string;
+  message?: string;
+}
+
 export default function SettingsPage() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [labels, setLabels] = useState<GmailLabel[]>([]);
   const [settings, setSettings] = useState<UserSettings>({
     watchedLabelIds: [],
     cronFrequencyMinutes: 1440,
     customInstructions: '',
   });
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    isRunning: false,
+  });
   const [loading, setLoading] = useState(false);
-  const [syncingLabels, setSyncingLabels] = useState(false);
-  const [message, setMessage] = useState<{
-    type: 'success' | 'error';
-    text: string;
-  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  // Fetch labels and settings on component mount
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (session?.user?.id) {
       fetchLabels();
       fetchSettings();
     }
-  }, [status]);
+  }, [session?.user?.id]);
 
   const fetchLabels = async () => {
     try {
@@ -59,11 +79,9 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         setLabels(data.labels || []);
-      } else {
-        console.error('Failed to fetch labels');
       }
     } catch (error) {
-      console.error('Error fetching labels:', error);
+      console.error('Failed to fetch labels:', error);
     }
   };
 
@@ -73,49 +91,42 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
-      } else {
-        console.error('Failed to fetch settings');
       }
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      console.error('Failed to fetch settings:', error);
     }
   };
 
   const syncLabels = async () => {
-    setSyncingLabels(true);
     try {
+      setLoading(true);
+      setError(null);
+      
       const response = await fetch('/api/gmail/labels/sync', {
         method: 'POST',
       });
-
+      
       if (response.ok) {
         const data = await response.json();
-        setMessage({
-          type: 'success',
-          text: `Successfully synced ${data.synced} labels`,
-        });
-        // Refresh labels after sync
-        await fetchLabels();
+        setSuccess(`Labels synced successfully! Found ${data.synced} labels.`);
+        fetchLabels(); // Refresh the labels list
       } else {
         const errorData = await response.json();
-        setMessage({
-          type: 'error',
-          text: errorData.error || 'Failed to sync labels',
-        });
+        setError(errorData.error || 'Failed to sync labels');
       }
     } catch (error) {
-      setMessage({
-        type: 'error',
-        text: 'Failed to sync labels. Please try again.',
-      });
+      setError('Failed to sync labels');
+      console.error('Label sync error:', error);
     } finally {
-      setSyncingLabels(false);
+      setLoading(false);
     }
   };
 
   const saveSettings = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
+      setError(null);
+      
       const response = await fetch('/api/settings', {
         method: 'PUT',
         headers: {
@@ -123,181 +134,297 @@ export default function SettingsPage() {
         },
         body: JSON.stringify(settings),
       });
-
+      
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Settings saved successfully' });
+        setSuccess('Settings saved successfully!');
       } else {
         const errorData = await response.json();
-        setMessage({
-          type: 'error',
-          text: errorData.error || 'Failed to save settings',
-        });
+        setError(errorData.error || 'Failed to save settings');
       }
     } catch (error) {
-      setMessage({
-        type: 'error',
-        text: 'Failed to save settings. Please try again.',
-      });
+      setError('Failed to save settings');
+      console.error('Save settings error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter out system labels for the multi-select
-  const userLabels = labels.filter((label) => label.type === 'user');
+  const startManualSync = async () => {
+    try {
+      setSyncStatus({ isRunning: true, message: 'Starting manual sync...' });
+      setError(null);
+      
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStatus({
+          isRunning: false,
+          lastSync: new Date().toISOString(),
+          message: `Sync completed! Processed ${data.data.totalEmailsProcessed} emails, created ${data.data.totalLeadsInserted} leads.`,
+        });
+        setSuccess('Manual sync completed successfully!');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to start manual sync');
+        setSyncStatus({ isRunning: false });
+      }
+    } catch (error) {
+      setError('Failed to start manual sync');
+      setSyncStatus({ isRunning: false });
+      console.error('Manual sync error:', error);
+    }
+  };
 
-  if (status === 'loading') {
+  const handleLabelToggle = (labelId: string) => {
+    setSettings(prev => ({
+      ...prev,
+      watchedLabelIds: prev.watchedLabelIds.includes(labelId)
+        ? prev.watchedLabelIds.filter(id => id !== labelId)
+        : [...prev.watchedLabelIds, labelId],
+    }));
+  };
+
+  const formatFrequency = (minutes: number) => {
+    if (minutes < 60) return `${minutes} minutes`;
+    if (minutes < 1440) return `${Math.round(minutes / 60)} hours`;
+    return `${Math.round(minutes / 1440)} days`;
+  };
+
+  if (!session?.user?.id) {
     return (
       <Container size="md" py="xl">
-        <LoadingOverlay visible />
-      </Container>
-    );
-  }
-
-  if (status === 'unauthenticated') {
-    return (
-      <Container size="md" py="xl">
-        <Alert
-          icon={<IconAlertCircle size="1rem" />}
-          title="Authentication Required"
-          color="red"
-        >
-          Please sign in to access your settings.
-        </Alert>
+        <Paper shadow="md" p="xl" withBorder>
+          <Text ta="center" c="dimmed">
+            Please sign in to access settings.
+          </Text>
+        </Paper>
       </Container>
     );
   }
 
   return (
-    <Container size="md" py="xl">
-      <Title order={1} mb="xl">
-        Settings
-      </Title>
-
-      {message && (
-        <Alert
-          icon={
-            message.type === 'success' ? (
-              <IconCheck size="1rem" />
-            ) : (
-              <IconAlertCircle size="1rem" />
-            )
-          }
-          title={message.type === 'success' ? 'Success' : 'Error'}
-          color={message.type === 'success' ? 'green' : 'red'}
-          mb="md"
-          onClose={() => setMessage(null)}
-          withCloseButton
-        >
-          {message.text}
-        </Alert>
-      )}
-
-      <Paper shadow="xs" p="xl" withBorder>
-        <Stack gap="lg">
-          {/* Gmail Labels Section */}
+    <Container size="lg" py="xl">
+      <Stack gap="xl">
+        {/* Header */}
+        <Group justify="space-between" align="center">
           <div>
-            <Group justify="space-between" mb="sm">
-              <Title order={3}>Gmail Labels</Title>
+            <Title order={1} mb="xs">
+              <IconSettings size="1.5rem" style={{ marginRight: '0.5rem' }} />
+              Settings
+            </Title>
+            <Text c="dimmed">
+              Manage your Gmail sync preferences and job lead extraction rules
+            </Text>
+          </div>
+          
+          {/* Manual Sync Button */}
+          <Button
+            leftSection={<IconRefreshAlert size="1rem" />}
+            onClick={startManualSync}
+            loading={syncStatus.isRunning}
+            disabled={syncStatus.isRunning || settings.watchedLabelIds.length === 0}
+            variant="filled"
+            color="blue"
+            size="lg"
+          >
+            {syncStatus.isRunning ? 'Syncing...' : 'Manual Sync'}
+          </Button>
+        </Group>
+
+        {/* Sync Status */}
+        {syncStatus.message && (
+          <Alert
+            icon={syncStatus.isRunning ? <IconRefreshAlert size="1rem" /> : <IconCheck size="1rem" />}
+            title={syncStatus.isRunning ? 'Sync in Progress' : 'Last Sync'}
+            color={syncStatus.isRunning ? 'blue' : 'green'}
+            variant="light"
+          >
+            <Text size="sm">{syncStatus.message}</Text>
+            {syncStatus.lastSync && (
+              <Text size="xs" c="dimmed" mt="xs">
+                Last sync: {new Date(syncStatus.lastSync).toLocaleString()}
+              </Text>
+            )}
+          </Alert>
+        )}
+
+        {/* Error/Success Messages */}
+        {error && (
+          <Alert
+            icon={<IconX size="1rem" />}
+            title="Error"
+            color="red"
+            variant="light"
+            onClose={() => setError(null)}
+            withCloseButton
+          >
+            {error}
+          </Alert>
+        )}
+
+        {success && (
+          <Alert
+            icon={<IconCheck size="1rem" />}
+            title="Success"
+            color="green"
+            variant="light"
+            onClose={() => setSuccess(null)}
+            withCloseButton
+          >
+            {success}
+          </Alert>
+        )}
+
+        <LoadingOverlay visible={loading} />
+
+        {/* Gmail Labels Section */}
+        <Paper shadow="md" p="xl" withBorder>
+          <Stack gap="lg">
+            <Group justify="space-between" align="center">
+              <div>
+                <Title order={2} size="h3">
+                  <IconMail size="1.2rem" style={{ marginRight: '0.5rem' }} />
+                  Gmail Labels
+                </Title>
+                <Text c="dimmed" size="sm">
+                  Select which Gmail labels to monitor for job leads
+                </Text>
+              </div>
+              
               <Button
                 leftSection={<IconRefresh size="1rem" />}
                 onClick={syncLabels}
-                loading={syncingLabels}
+                loading={loading}
                 variant="outline"
+                size="sm"
               >
                 Sync Labels
               </Button>
             </Group>
-            <Text size="sm" c="dimmed" mb="md">
-              Select which Gmail labels to monitor for job leads. Use the "Sync
-              Labels" button to refresh the list from Gmail.
-            </Text>
 
-            <MultiSelect
-              label="Watched Labels"
-              placeholder="Select labels to monitor"
-              data={userLabels.map((label) => ({
-                value: label.id,
-                label: label.name,
-              }))}
-              value={settings.watchedLabelIds}
-              onChange={(value) =>
-                setSettings((prev) => ({ ...prev, watchedLabelIds: value }))
-              }
-              searchable
-              disabled={labels.length === 0}
-            />
-            {labels.length === 0 && (
-              <Text size="xs" c="dimmed" mt="xs">
-                No labels found. Click "Sync Labels" to fetch labels from Gmail.
-              </Text>
+            {labels.length === 0 ? (
+              <Alert color="blue" variant="light">
+                <Text size="sm">
+                  No Gmail labels found. Click "Sync Labels" to fetch your Gmail labels.
+                </Text>
+              </Alert>
+            ) : (
+              <div>
+                <Text size="sm" fw={500} mb="md">
+                  Select labels to watch for job leads:
+                </Text>
+                <Stack gap="xs">
+                  {labels.map((label) => (
+                    <Card key={label.id} withBorder p="sm">
+                      <Group justify="space-between" align="center">
+                        <div>
+                          <Text size="sm" fw={500}>
+                            {label.name}
+                          </Text>
+                          <Group gap="xs" mt="xs">
+                            <Badge size="xs" variant="light">
+                              {label.type}
+                            </Badge>
+                            {settings.watchedLabelIds.includes(label.id) && (
+                              <Badge size="xs" color="green" variant="light">
+                                Watching
+                              </Badge>
+                            )}
+                          </Group>
+                        </div>
+                        
+                        <Switch
+                          checked={settings.watchedLabelIds.includes(label.id)}
+                          onChange={() => handleLabelToggle(label.id)}
+                          size="sm"
+                        />
+                      </Group>
+                    </Card>
+                  ))}
+                </Stack>
+              </div>
             )}
-          </div>
+          </Stack>
+        </Paper>
 
-          {/* Sync Frequency Section */}
-          <div>
-            <Title order={3} mb="sm">
-              Sync Frequency
-            </Title>
-            <Text size="sm" c="dimmed" mb="md">
-              How often to check for new emails (in minutes). Minimum 15,
-              maximum 1440 (24 hours).
-            </Text>
+        {/* Sync Frequency Section */}
+        <Paper shadow="md" p="xl" withBorder>
+          <Stack gap="lg">
+            <div>
+              <Title order={2} size="h3">
+                <IconClock size="1.2rem" style={{ marginRight: '0.5rem' }} />
+                Sync Frequency
+              </Title>
+              <Text c="dimmed" size="sm">
+                How often to automatically sync emails (in minutes)
+              </Text>
+            </div>
 
             <NumberInput
-              label="Check every (minutes)"
+              label="Sync Interval"
+              description={`Currently syncing every ${formatFrequency(settings.cronFrequencyMinutes)}`}
               placeholder="1440"
               min={15}
               max={1440}
-              value={settings.cronFrequencyMinutes}
-              onChange={(value) =>
-                setSettings((prev) => ({
-                  ...prev,
-                  cronFrequencyMinutes:
-                    typeof value === 'number' ? value : 1440,
-                }))
-              }
               step={15}
+              value={settings.cronFrequencyMinutes}
+              onChange={(value) => setSettings(prev => ({ ...prev, cronFrequencyMinutes: typeof value === 'number' ? value : 1440 }))}
+              leftSection={<IconClock size="1rem" />}
             />
-          </div>
-
-          {/* Custom Instructions Section */}
-          <div>
-            <Title order={3} mb="sm">
-              Custom Instructions
-            </Title>
-            <Text size="sm" c="dimmed" mb="md">
-              Provide specific instructions for the AI when extracting job leads
-              from your emails.
+            
+            <Text size="xs" c="dimmed">
+              Note: Minimum 15 minutes, maximum 24 hours (1440 minutes). 
+              Changes will take effect on the next scheduled sync.
             </Text>
+          </Stack>
+        </Paper>
+
+        {/* Custom Instructions Section */}
+        <Paper shadow="md" p="xl" withBorder>
+          <Stack gap="lg">
+            <div>
+              <Title order={2} size="h3">
+                <IconEdit size="1.2rem" style={{ marginRight: '0.5rem' }} />
+                Custom Extraction Rules
+              </Title>
+              <Text c="dimmed" size="sm">
+                Provide specific instructions for AI job lead extraction
+              </Text>
+            </div>
 
             <Textarea
-              label="Extraction Instructions"
-              placeholder="e.g., Ignore links with 'Senior' in the title, focus on remote positions, prefer companies with 50+ employees"
+              label="Custom Instructions"
+              description="Tell the AI how to identify and classify job leads from your emails"
+              placeholder="Example: Focus on engineering and technical roles only. Ignore marketing and sales positions. Prioritize remote/hybrid opportunities. Look for senior-level positions (5+ years experience)."
               value={settings.customInstructions}
-              onChange={(event) =>
-                setSettings((prev) => ({
-                  ...prev,
-                  customInstructions: event.currentTarget.value,
-                }))
-              }
+              onChange={(event) => setSettings(prev => ({ ...prev, customInstructions: event.currentTarget.value }))}
               minRows={4}
               maxRows={8}
             />
-            <Text size="xs" c="dimmed" mt="xs">
-              These instructions will be sent to the AI to help it better
-              understand your preferences when analyzing emails.
+            
+            <Text size="xs" c="dimmed">
+              These instructions will be used by the AI to better understand what types of job leads 
+              you're interested in and how to classify them.
             </Text>
-          </div>
+          </Stack>
+        </Paper>
 
-          {/* Save Button */}
-          <Group justify="flex-end" mt="xl">
-            <Button onClick={saveSettings} loading={loading} size="lg">
-              Save Settings
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
+        {/* Save Button */}
+        <Group justify="center">
+          <Button
+            leftSection={<IconCheck size="1rem" />}
+            onClick={saveSettings}
+            loading={loading}
+            size="lg"
+            disabled={settings.watchedLabelIds.length === 0}
+          >
+            Save Settings
+          </Button>
+        </Group>
+      </Stack>
     </Container>
   );
 }

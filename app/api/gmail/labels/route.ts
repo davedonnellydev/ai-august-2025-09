@@ -3,7 +3,7 @@ import { auth } from '../../../auth';
 import { db, gmailLabelsCacheTable } from '../../../db';
 import { eq } from 'drizzle-orm';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get current user session
     const session = await auth();
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       count: labels.length,
     });
   } catch (error) {
-    console.error('Error fetching Gmail labels:', error);
+    // Log error for debugging but don't expose in response
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

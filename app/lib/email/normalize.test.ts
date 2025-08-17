@@ -214,5 +214,225 @@ describe('Email Normalization', () => {
 
       expect(links).toHaveLength(0);
     });
+
+    // Enhanced heuristics tests
+    it('should classify job posting links by domain patterns', () => {
+      const jobDomains = [
+        'https://seek.com.au/jobs/123',
+        'https://linkedin.com/jobs/456',
+        'https://greenhouse.io/jobs/789',
+        'https://workable.com/jobs/abc',
+        'https://lever.co/jobs/def',
+      ];
+
+      jobDomains.forEach((url) => {
+        const input = { html: `<a href="${url}">Apply</a>` };
+        const links = extractLinks(input);
+        expect(links[0].type).toBe('job_posting');
+      });
+    });
+
+    it('should classify job posting links by URL path patterns', () => {
+      const jobPaths = [
+        'https://company.com/careers/123',
+        'https://company.com/jobs/456',
+        'https://company.com/position/789',
+        'https://company.com/opening/abc',
+        'https://company.com/apply/def',
+      ];
+
+      jobPaths.forEach((url) => {
+        const input = { html: `<a href="${url}">Apply</a>` };
+        const links = extractLinks(input);
+        expect(links[0].type).toBe('job_posting');
+      });
+    });
+
+    it('should classify job list links by anchor text patterns', () => {
+      const jobListTexts = [
+        'See all jobs',
+        'Browse careers',
+        'View all positions',
+        'More opportunities',
+        'Career opportunities',
+        'Open positions',
+      ];
+
+      jobListTexts.forEach((text) => {
+        const input = {
+          html: `<a href="https://company.com/careers">${text}</a>`,
+        };
+        const links = extractLinks(input);
+        expect(links[0].type).toBe('job_list');
+        expect(links[0].isLikelyJobList).toBe(true);
+      });
+    });
+
+    it('should classify company links by URL path patterns', () => {
+      const companyPaths = [
+        'https://company.com/about',
+        'https://company.com/company',
+        'https://company.com/team',
+        'https://company.com/culture',
+        'https://company.com/values',
+        'https://company.com/contact',
+      ];
+
+      companyPaths.forEach((url) => {
+        const input = { html: `<a href="${url}">Link</a>` };
+        const links = extractLinks(input);
+        expect(links[0].type).toBe('company');
+      });
+    });
+
+    it('should classify unsubscribe links by anchor text patterns', () => {
+      const unsubscribeTexts = [
+        'Unsubscribe',
+        'Opt out',
+        'Remove',
+        'Unsub',
+        'Stop emails',
+        'Email preferences',
+        'Manage subscription',
+      ];
+
+      unsubscribeTexts.forEach((text) => {
+        const input = {
+          html: `<a href="https://newsletter.com/unsub">${text}</a>`,
+        };
+        const links = extractLinks(input);
+        expect(links[0].type).toBe('unsubscribe');
+        expect(links[0].isUnsubscribe).toBe(true);
+      });
+    });
+
+    it('should classify tracking links by domain patterns', () => {
+      const trackingDomains = [
+        'https://go.redirectingat.com/abc123',
+        'https://click.email/def456',
+        'https://track.email/ghi789',
+        'https://links.email/jkl012',
+        'https://click.newsletter/mno345',
+      ];
+
+      trackingDomains.forEach((url) => {
+        const input = { html: `<a href="${url}">Click here</a>` };
+        const links = extractLinks(input);
+        expect(links[0].type).toBe('tracking');
+        expect(links[0].isTracking).toBe(true);
+      });
+    });
+
+    it('should classify tracking links by URL path patterns', () => {
+      const trackingPaths = [
+        'https://company.com/click/abc123',
+        'https://company.com/track/def456',
+        'https://company.com/go/ghi789',
+        'https://company.com/link/jkl012',
+        'https://company.com/redirect/mno345',
+      ];
+
+      trackingPaths.forEach((url) => {
+        const input = { html: `<a href="${url}">Click here</a>` };
+        const links = extractLinks(input);
+        expect(links[0].type).toBe('tracking');
+        expect(links[0].isTracking).toBe(true);
+      });
+    });
+
+    it('should handle mixed content with various link types', () => {
+      const input = {
+        html: `
+          <a href="https://company.com/jobs/123">Apply Now</a>
+          <a href="https://company.com/careers">See All Jobs</a>
+          <a href="https://company.com/about">About Us</a>
+          <a href="https://newsletter.com/unsubscribe">Unsubscribe</a>
+          <a href="https://tracking.com/click/abc123">Click here</a>
+        `,
+      };
+
+      const links = extractLinks(input);
+
+      expect(links).toHaveLength(5);
+      expect(links.find((l) => l.type === 'job_posting')).toBeDefined();
+      expect(links.find((l) => l.type === 'job_list')).toBeDefined();
+      expect(links.find((l) => l.type === 'company')).toBeDefined();
+      expect(links.find((l) => l.type === 'unsubscribe')).toBeDefined();
+      expect(links.find((l) => l.type === 'tracking')).toBeDefined();
+    });
+
+    it('should prioritize job-related classifications over generic ones', () => {
+      const input = {
+        html: '<a href="https://company.com/careers">See all jobs</a>',
+      };
+
+      const links = extractLinks(input);
+
+      // Should be classified as job_list, not company
+      expect(links[0].type).toBe('job_list');
+      expect(links[0].isLikelyJobList).toBe(true);
+    });
+
+    it('should handle edge cases gracefully', () => {
+      const edgeCases = [
+        { html: '<a href="">Empty href</a>', expectedLength: 0 },
+        { html: '<a href="javascript:void(0)">JS link</a>', expectedLength: 1 }, // javascript:void(0) is treated as a valid URL
+        {
+          html: '<a href="mailto:test@example.com">Email link</a>',
+          expectedLength: 1,
+        }, // mailto links are treated as valid URLs
+        { html: '<a href="tel:+1234567890">Phone link</a>', expectedLength: 1 }, // tel links are treated as valid URLs
+        { html: '<a href="ftp://example.com">FTP link</a>', expectedLength: 1 },
+      ];
+
+      edgeCases.forEach(({ html, expectedLength }) => {
+        const input = { html };
+        const links = extractLinks(input);
+        expect(links).toHaveLength(expectedLength);
+      });
+    });
+  });
+
+  describe('URL normalization edge cases', () => {
+    it('should handle URLs with multiple tracking parameters', () => {
+      const url =
+        'https://example.com/jobs?utm_source=email&utm_medium=web&utm_campaign=jobs&utm_term=developer&utm_content=banner&fbclid=abc123&gclid=def456&ref=123';
+      const normalized = normalizeUrl(url);
+
+      expect(normalized).toBe('https://example.com/jobs?ref=123');
+    });
+
+    it('should handle URLs with mixed valid and tracking parameters', () => {
+      const url =
+        'https://example.com/jobs?jobId=123&utm_source=email&location=sydney&utm_campaign=jobs&department=engineering';
+      const normalized = normalizeUrl(url);
+
+      expect(normalized).toBe(
+        'https://example.com/jobs?jobId=123&location=sydney&department=engineering'
+      );
+    });
+
+    it('should handle URLs with fragments and tracking', () => {
+      const url = 'https://example.com/jobs?utm_source=email#section';
+      const normalized = normalizeUrl(url);
+
+      expect(normalized).toBe('https://example.com/jobs');
+    });
+
+    it('should handle malformed URLs gracefully', () => {
+      const malformedUrls = [
+        'not-a-url',
+        'http://',
+        'https://',
+        'ftp://invalid',
+        'mailto:test@example.com',
+      ];
+
+      malformedUrls.forEach((url) => {
+        const normalized = normalizeUrl(url);
+        // Should return cleaned version or original if parsing fails
+        expect(typeof normalized).toBe('string');
+      });
+    });
   });
 });

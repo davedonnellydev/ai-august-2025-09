@@ -182,39 +182,18 @@ function generateDedupeKey(candidate: LeadCandidate): string {
 }
 
 /**
- * Extract job leads from email content using OpenAI Responses API
- * @param input - Extraction input containing email text, links, and metadata
- * @returns Promise resolving to extraction result with leads and token usage
+ * Build the prompt for OpenAI to extract job leads.
+ * @param emailText - The full email content.
+ * @param filteredLinks - The pre-filtered links to analyze.
+ * @param customInstructions - Optional custom instructions for the model.
+ * @returns The constructed prompt.
  */
-export async function extractJobLeads(
-  input: ExtractionInput
-): Promise<ExtractionResult> {
-  const { emailText, rawLinks, customInstructions, userId, emailId } = input;
-
-  // Validate OpenAI API key
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OpenAI API key not configured');
-  }
-
-  // Initialize OpenAI client
-  const openai = new OpenAI({ apiKey });
-
-  try {
-    // Step 1: Pre-filter links to remove obvious unsubscribe/tracking
-    const filteredLinks = preFilterLinks(rawLinks);
-    console.log(
-      `Pre-filtered ${rawLinks.length} links down to ${filteredLinks.length} candidates`
-    );
-
-    // Step 2: Normalize URLs for deduplication
-    const normalizedLinks = filteredLinks.map((link) => ({
-      ...link,
-      normalizedUrl: normalizeUrl(link.url),
-    }));
-
-    // Step 3: Prepare prompt for OpenAI
-    const systemPrompt = `You are an expert at analyzing job-related emails and extracting relevant job leads.
+function buildExtractionPrompt(
+  emailText: string,
+  filteredLinks: Array<{ url: string; anchorText?: string }>,
+  customInstructions?: string
+): string {
+  const systemPrompt = `You are an expert at analyzing job-related emails and extracting relevant job leads.
 
 Your task is to analyze the email content and links to identify potential job opportunities and related information.
 
@@ -236,134 +215,188 @@ ${customInstructions ? `Custom Instructions: ${customInstructions}` : ''}
 
 Focus on identifying genuine job opportunities and relevant career information. Be conservative with confidence scores.`;
 
-    const userPrompt = `Email Content:
+  const userPrompt = `Email Content:
 ${emailText}
 
 Links to analyze:
-${normalizedLinks
+${filteredLinks
   .map(
     (link, index) =>
       `${index + 1}. URL: ${link.url}
-   Normalized: ${link.normalizedUrl}
+   Normalized: ${normalizeUrl(link.url)}
    Anchor Text: ${link.anchorText || 'None'}`
   )
   .join('\n\n')}
 
 Please analyze each link and provide structured output with the type, extracted information, and confidence score.`;
 
-    // Step 4: Call OpenAI Responses API
-    const response = await openai.responses.create({
-      model: 'gpt-4o-mini',
-      instructions: systemPrompt,
-      input: userPrompt,
-    });
+  return `${systemPrompt}\n\n${userPrompt}`;
+}
 
-    if (response.status !== 'completed') {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
+/**
+ * Parse the structured output from OpenAI to extract LeadCandidate objects.
+ * @param responseText - The full response text from OpenAI.
+ * @returns An array of LeadCandidate objects.
+ */
+function parseLeadsFromResponse(responseText: string): LeadCandidate[] {
+  const leads: LeadCandidate[] = [];
+  const lines = responseText.split('\n');
+  let currentLead: Partial<LeadCandidate> = {};
 
-    // Step 5: Parse the structured output
-    const outputText = response.output_text || '';
-    const leads: LeadCandidate[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
 
-    // Simple parsing of the output (in production, you might want more robust parsing)
-    // This assumes the model returns a structured format
-    const lines = outputText.split('\n');
-    let currentLead: Partial<LeadCandidate> = {};
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (trimmed.startsWith('URL:')) {
-        // Save previous lead if complete
-        if (
-          currentLead.url &&
-          currentLead.type &&
-          currentLead.confidence !== undefined
-        ) {
-          const lead = currentLead as LeadCandidate;
-          lead.dedupeKey = generateDedupeKey(lead);
-          leads.push(lead);
-        }
-
-        // Start new lead
-        currentLead = {
-          url: trimmed.replace('URL:', '').trim(),
-          normalizedUrl: '',
-          type: 'other',
-          confidence: 0.5,
-        };
-      } else if (trimmed.startsWith('Type:')) {
-        const type = trimmed.replace('Type:', '').trim().toLowerCase();
-        if (
-          [
-            'job_posting',
-            'job_list',
-            'company',
-            'unsubscribe',
-            'tracking',
-            'other',
-          ].includes(type)
-        ) {
-          currentLead.type = type as any;
-        }
-      } else if (trimmed.startsWith('Title:')) {
-        currentLead.title = trimmed.replace('Title:', '').trim();
-      } else if (trimmed.startsWith('Company:')) {
-        currentLead.company = trimmed.replace('Company:', '').trim();
-      } else if (trimmed.startsWith('Location:')) {
-        currentLead.location = trimmed.replace('Location:', '').trim();
-      } else if (trimmed.startsWith('Confidence:')) {
-        const confidence = parseFloat(
-          trimmed.replace('Confidence:', '').trim()
-        );
-        if (!isNaN(confidence) && confidence >= 0 && confidence <= 1) {
-          currentLead.confidence = confidence;
-        }
-      }
-    }
-
-    // Add the last lead if complete
-    if (
-      currentLead.url &&
-      currentLead.type &&
-      currentLead.confidence !== undefined
-    ) {
-      const lead = currentLead as LeadCandidate;
-      lead.dedupeKey = generateDedupeKey(lead);
-      leads.push(lead);
-    }
-
-    // Step 6: Post-process leads
-    const processedLeads = leads.map((lead) => {
-      // Ensure normalized URL is set
-      if (!lead.normalizedUrl) {
-        lead.normalizedUrl = normalizeUrl(lead.url);
+    if (trimmed.startsWith('URL:')) {
+      // Save previous lead if complete
+      if (
+        currentLead.url &&
+        currentLead.type &&
+        currentLead.confidence !== undefined
+      ) {
+        const lead = currentLead as LeadCandidate;
+        lead.dedupeKey = generateDedupeKey(lead);
+        leads.push(lead);
       }
 
-      // Set anchor text if available
-      const originalLink = normalizedLinks.find((l) => l.url === lead.url);
-      if (originalLink?.anchorText) {
-        lead.anchorText = originalLink.anchorText;
+      // Start new lead
+      currentLead = {
+        url: trimmed.replace('URL:', '').trim(),
+        normalizedUrl: '',
+        type: 'other',
+        confidence: 0.5,
+      };
+    } else if (trimmed.startsWith('Type:')) {
+      const type = trimmed.replace('Type:', '').trim().toLowerCase();
+      if (
+        [
+          'job_posting',
+          'job_list',
+          'company',
+          'unsubscribe',
+          'tracking',
+          'other',
+        ].includes(type)
+      ) {
+        currentLead.type = type as any;
       }
-
-      return lead;
-    });
-
-    // Step 7: Return results with token usage
-    return {
-      leads: processedLeads,
-      tokens: {
-        input: response.usage?.total_tokens || 0,
-        output: 0, // OpenAI Responses API doesn't provide separate input/output token counts
-      },
-    };
-  } catch (error) {
-    console.error('Error extracting job leads:', error);
-    throw new Error(
-      `Failed to extract job leads: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    } else if (trimmed.startsWith('Title:')) {
+      currentLead.title = trimmed.replace('Title:', '').trim();
+    } else if (trimmed.startsWith('Company:')) {
+      currentLead.company = trimmed.replace('Company:', '').trim();
+    } else if (trimmed.startsWith('Location:')) {
+      currentLead.location = trimmed.replace('Location:', '').trim();
+    } else if (trimmed.startsWith('Confidence:')) {
+      const confidence = parseFloat(
+        trimmed.replace('Confidence:', '').trim()
+      );
+      if (!isNaN(confidence) && confidence >= 0 && confidence <= 1) {
+        currentLead.confidence = confidence;
+      }
+    }
   }
+
+  // Add the last lead if complete
+  if (
+    currentLead.url &&
+    currentLead.type &&
+    currentLead.confidence !== undefined
+  ) {
+    const lead = currentLead as LeadCandidate;
+    lead.dedupeKey = generateDedupeKey(lead);
+    leads.push(lead);
+  }
+
+  return leads;
+}
+
+/**
+ * Post-process extracted leads to ensure consistency and set normalized URLs.
+ * @param leads - The raw leads extracted from the model.
+ * @returns The processed leads.
+ */
+function postProcessLeads(leads: LeadCandidate[]): LeadCandidate[] {
+  return leads.map((lead) => {
+    // Ensure normalized URL is set
+    if (!lead.normalizedUrl) {
+      lead.normalizedUrl = normalizeUrl(lead.url);
+    }
+
+    return lead;
+  });
+}
+
+/**
+ * Extract job leads from email content using OpenAI Responses API
+ * @param input - Extraction input containing email text, links, and metadata
+ * @returns Promise resolving to extraction result with leads and token usage
+ */
+export async function extractJobLeads(
+  input: ExtractionInput
+): Promise<ExtractionResult> {
+  // Validate OpenAI API key
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  // Validate input
+  if (!input.emailText || !input.rawLinks || !input.userId || !input.emailId) {
+    throw new Error('Missing required input parameters');
+  }
+
+  // Step 1: Pre-filter links to focus on job-related ones
+  const filteredLinks = preFilterLinks(input.rawLinks);
+
+  if (filteredLinks.length === 0) {
+    return {
+      leads: [],
+      tokens: { input: 0, output: 0 },
+    };
+  }
+
+  // Step 2: Prepare prompt for OpenAI
+  const prompt = buildExtractionPrompt(
+    input.emailText,
+    filteredLinks,
+    input.customInstructions
+  );
+
+  // Step 3: Call OpenAI API
+  const openai = new OpenAI({ apiKey });
+  const completion = await openai.chat.completions.create({
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: prompt,
+      },
+    ],
+    max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS || '1000', 10),
+    temperature: 0.1, // Low temperature for consistent extraction
+  });
+
+  // Step 4: Parse OpenAI response
+  const responseText = completion.choices[0]?.message?.content;
+  if (!responseText) {
+    throw new Error('No response from OpenAI');
+  }
+
+  // Step 5: Extract leads from response
+  const leads = parseLeadsFromResponse(responseText);
+
+  // Step 6: Post-process and deduplicate leads
+  const processedLeads = postProcessLeads(leads);
+
+  // Step 7: Calculate token usage
+  const tokens = {
+    input: completion.usage?.prompt_tokens || 0,
+    output: completion.usage?.completion_tokens || 0,
+  };
+
+  return {
+    leads: processedLeads,
+    tokens,
+  };
 }
 
 /**

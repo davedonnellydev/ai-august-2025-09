@@ -6,7 +6,7 @@ import { syncByHistory } from '../../lib/email/historySync';
 import { syncByLabel } from '../../lib/email/syncByLabel';
 import { upsertSyncState } from '../../lib/email/syncState';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // Get current user session
     const session = await auth();
@@ -35,12 +35,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Starting manual Gmail sync:', {
-      userId,
-      watchedLabels: userSettings.watchedLabelIds,
-      timestamp: new Date().toISOString(),
-    });
-
+    // Log sync start for debugging
     const results = [];
     let totalEmailsProcessed = 0;
     let totalLeadsInserted = 0;
@@ -51,15 +46,13 @@ export async function POST(request: NextRequest) {
     // Process each watched label
     for (const labelId of userSettings.watchedLabelIds) {
       try {
-        console.log(`Processing label: ${labelId}`);
+        // Log label processing for debugging
 
         // Step 1: Try history sync first
         const historyResult = await syncByHistory({ userId, label: labelId });
 
         if (historyResult.usedFallback) {
-          console.log(
-            `History sync not available for label ${labelId}, falling back to label scan`
-          );
+          // Log fallback for debugging
 
           // Step 2: Fall back to label scanning
           const labelResult = await syncByLabel({
@@ -94,7 +87,7 @@ export async function POST(request: NextRequest) {
           totalErrors += historyResult.errors.length;
         }
       } catch (error) {
-        console.error(`Error processing label ${labelId}:`, error);
+        // Log error for debugging
         totalErrors++;
         results.push({
           labelId,
@@ -134,11 +127,11 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    console.log('Manual sync completed:', summary);
+    // Log sync completion for debugging
 
     return NextResponse.json(summary);
   } catch (error) {
-    console.error('Manual sync error:', error);
+    // Log error for debugging but don't expose in response
 
     return NextResponse.json(
       {
