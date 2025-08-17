@@ -12,8 +12,13 @@ import {
   Card,
   LoadingOverlay,
   Badge,
+  Divider,
 } from '@mantine/core';
-import { IconAlertCircle, IconArrowLeft, IconEdit } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconArrowLeft,
+  IconExternalLink,
+} from '@tabler/icons-react';
 
 interface ViewJobProps {
   jobId: string;
@@ -22,53 +27,46 @@ interface ViewJobProps {
   onEdit: () => void;
 }
 
-interface Company {
+interface Lead {
   id: string;
-  name: string;
-  website?: string;
+  url: string;
+  type: string;
+  title?: string;
+  company?: string;
   location?: string;
-}
-
-interface JobListing {
-  id: string;
-  title: string;
-  company: Company;
-  location?: string;
-  workMode?: string;
-  employmentType?: string;
   seniority?: string;
-  salaryMin?: string;
-  salaryMax?: string;
-  currency?: string;
-  url?: string;
-  description?: string;
+  employmentType?: string;
+  workMode?: string;
   status: string;
-  decision: string;
+  canonicalJobKey?: string;
+  anchorText?: string;
+  sourceLabelId?: string;
+  firstSeenAt?: string;
+  tags?: string[];
+  confidence?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export function ViewJob({ jobId, userId, onBack, onEdit }: ViewJobProps) {
-  const [job, setJob] = useState<JobListing | null>(null);
+  const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchJob();
+    fetchLead();
   }, [jobId]);
 
-  const fetchJob = async () => {
+  const fetchLead = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/jobs/${jobId}?userId=${encodeURIComponent(userId)}`
-      );
+      const response = await fetch(`/api/leads/${jobId}`);
       const result = await response.json();
 
-      if (result.success) {
-        setJob(result.data);
+      if (response.ok) {
+        setLead(result);
       } else {
-        setError(result.error || 'Failed to fetch job details');
+        setError(result.error || 'Failed to fetch lead details');
       }
     } catch (err) {
       setError('Network error occurred');
@@ -80,23 +78,24 @@ export function ViewJob({ jobId, userId, onBack, onEdit }: ViewJobProps) {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       new: 'blue',
-      ready: 'yellow',
-      applied: 'orange',
-      interview: 'purple',
-      offer: 'green',
+      undecided: 'gray',
+      added_to_huntr: 'green',
       rejected: 'red',
-      archived: 'gray',
+      duplicate: 'orange',
     };
     return colors[status] || 'gray';
   };
 
-  const getDecisionColor = (decision: string) => {
+  const getTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      undecided: 'gray',
-      apply: 'green',
-      skip: 'red',
+      job_posting: 'blue',
+      job_list: 'green',
+      company: 'purple',
+      unsubscribe: 'red',
+      tracking: 'yellow',
+      other: 'gray',
     };
-    return colors[decision] || 'gray';
+    return colors[type] || 'gray';
   };
 
   const formatDate = (dateString: string) => {
@@ -109,29 +108,8 @@ export function ViewJob({ jobId, userId, onBack, onEdit }: ViewJobProps) {
     });
   };
 
-  const formatSalary = (min?: string, max?: string, currency?: string) => {
-    if (!min && !max) {
-      return 'Not specified';
-    }
-
-    const currencySymbol =
-      currency === 'USD'
-        ? '$'
-        : currency === 'EUR'
-          ? '€'
-          : currency === 'GBP'
-            ? '£'
-            : currency || '';
-
-    if (min && max) {
-      return `${currencySymbol}${parseInt(min, 10).toLocaleString()} - ${currencySymbol}${parseInt(max, 10).toLocaleString()}`;
-    } else if (min) {
-      return `${currencySymbol}${parseInt(min, 10).toLocaleString()}+`;
-    } else if (max) {
-      return `Up to ${currencySymbol}${parseInt(max, 10).toLocaleString()}`;
-    }
-
-    return 'Not specified';
+  const openUrl = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
@@ -142,39 +120,19 @@ export function ViewJob({ jobId, userId, onBack, onEdit }: ViewJobProps) {
     );
   }
 
-  if (error) {
+  if (error || !lead) {
     return (
       <Container size="xl" py="xl">
         <Alert
-          icon={<IconAlertCircle size={16} />}
+          icon={<IconAlertCircle size="1rem" />}
           title="Error"
           color="red"
           variant="filled"
-          mb="xl"
         >
-          {error}
+          {error || 'Lead not found'}
         </Alert>
-        <Button variant="outline" onClick={onBack}>
-          Back to Jobs
-        </Button>
-      </Container>
-    );
-  }
-
-  if (!job) {
-    return (
-      <Container size="xl" py="xl">
-        <Alert
-          icon={<IconAlertCircle size={16} />}
-          title="Job Not Found"
-          color="red"
-          variant="filled"
-          mb="xl"
-        >
-          The requested job could not be found.
-        </Alert>
-        <Button variant="outline" onClick={onBack}>
-          Back to Jobs
+        <Button variant="outline" onClick={onBack} mt="md">
+          Back to Leads
         </Button>
       </Container>
     );
@@ -182,171 +140,181 @@ export function ViewJob({ jobId, userId, onBack, onEdit }: ViewJobProps) {
 
   return (
     <Container size="xl" py="xl">
-      <Group mb="xl" justify="space-between">
+      <Group mb="xl">
         <Button
           variant="subtle"
-          leftSection={<IconArrowLeft size={16} />}
+          leftSection={<IconArrowLeft size="1rem" />}
           onClick={onBack}
         >
-          Back to Jobs
-        </Button>
-        <Button leftSection={<IconEdit size={16} />} onClick={onEdit}>
-          Edit Job
+          Back to Leads
         </Button>
       </Group>
 
-      <Title order={1} mb="xl">
-        {job.title}
-      </Title>
-
       <Stack gap="lg">
-        {/* Status and Decision */}
+        {/* Header */}
         <Card p="xl" withBorder>
-          <Group gap="md" mb="md">
-            <Badge color={getStatusColor(job.status)} variant="light" size="lg">
-              {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-            </Badge>
-            <Badge
-              color={getDecisionColor(job.decision)}
-              variant="light"
-              size="lg"
-            >
-              {job.decision.charAt(0).toUpperCase() + job.decision.slice(1)}
-            </Badge>
-          </Group>
-          <Text size="sm" c="dimmed">
-            Created: {formatDate(job.createdAt)}
-            {job.updatedAt !== job.createdAt &&
-              ` • Updated: ${formatDate(job.updatedAt)}`}
-          </Text>
-        </Card>
-
-        {/* Job Details */}
-        <Card p="xl" withBorder>
-          <Title order={3} mb="md">
-            Job Details
-          </Title>
-          <Stack gap="md">
-            <Group grow>
-              <div>
-                <Text size="sm" c="dimmed" mb={4}>
-                  Work Mode
+          <Group justify="space-between" align="flex-start" mb="md">
+            <div>
+              <Title order={1} mb="xs">
+                {lead.title || 'Untitled Lead'}
+              </Title>
+              {lead.company && (
+                <Text size="lg" c="dimmed" mb="xs">
+                  {lead.company}
                 </Text>
-                <Text>{job.workMode || 'Not specified'}</Text>
-              </div>
-              <div>
-                <Text size="sm" c="dimmed" mb={4}>
-                  Employment Type
+              )}
+              {lead.location && (
+                <Text size="md" c="dimmed">
+                  📍 {lead.location}
                 </Text>
-                <Text>{job.employmentType || 'Not specified'}</Text>
-              </div>
+              )}
+            </div>
+            <Group gap="sm">
+              <Badge
+                color={getStatusColor(lead.status)}
+                variant="light"
+                size="lg"
+              >
+                {lead.status.replace('_', ' ').charAt(0).toUpperCase() +
+                  lead.status.replace('_', ' ').slice(1)}
+              </Badge>
+              <Badge color={getTypeColor(lead.type)} variant="light" size="lg">
+                {lead.type.replace('_', ' ').charAt(0).toUpperCase() +
+                  lead.type.replace('_', ' ').slice(1)}
+              </Badge>
             </Group>
-            <div>
-              <Text size="sm" c="dimmed" mb={4}>
-                Seniority Level
-              </Text>
-              <Text>{job.seniority || 'Not specified'}</Text>
-            </div>
-          </Stack>
+          </Group>
+
+          <Divider my="md" />
+
+          <Group gap="lg">
+            <Button
+              variant="filled"
+              leftSection={<IconExternalLink size="1rem" />}
+              onClick={() => openUrl(lead.url)}
+            >
+              View Original
+            </Button>
+          </Group>
         </Card>
 
-        {/* Salary Information */}
+        {/* Details */}
         <Card p="xl" withBorder>
           <Title order={3} mb="md">
-            Salary Information
+            Lead Details
           </Title>
           <Stack gap="md">
-            <div>
-              <Text size="sm" c="dimmed" mb={4}>
-                Salary Range
+            <Group>
+              <Text fw={500} style={{ minWidth: '120px' }}>
+                URL:
               </Text>
-              <Text>
-                {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
+              <Text size="sm" style={{ wordBreak: 'break-all' }}>
+                {lead.url}
               </Text>
-            </div>
-            {job.currency && (
-              <div>
-                <Text size="sm" c="dimmed" mb={4}>
-                  Currency
+            </Group>
+
+            {lead.seniority && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Seniority:
                 </Text>
-                <Text>{job.currency}</Text>
-              </div>
+                <Text size="sm">{lead.seniority}</Text>
+              </Group>
+            )}
+
+            {lead.employmentType && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Employment Type:
+                </Text>
+                <Text size="sm">{lead.employmentType}</Text>
+              </Group>
+            )}
+
+            {lead.workMode && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Work Mode:
+                </Text>
+                <Text size="sm">{lead.workMode}</Text>
+              </Group>
+            )}
+
+            {lead.canonicalJobKey && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Job Key:
+                </Text>
+                <Text size="sm" style={{ fontFamily: 'monospace' }}>
+                  {lead.canonicalJobKey}
+                </Text>
+              </Group>
+            )}
+
+            {lead.anchorText && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Anchor Text:
+                </Text>
+                <Text size="sm">{lead.anchorText}</Text>
+              </Group>
+            )}
+
+            {lead.confidence && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Confidence:
+                </Text>
+                <Text size="sm">{lead.confidence}%</Text>
+              </Group>
+            )}
+
+            {lead.tags && lead.tags.length > 0 && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Tags:
+                </Text>
+                <Group gap="xs">
+                  {lead.tags.map((tag, index) => (
+                    <Badge key={index} variant="light" size="sm">
+                      {tag}
+                    </Badge>
+                  ))}
+                </Group>
+              </Group>
             )}
           </Stack>
         </Card>
 
-        {/* Company Information */}
+        {/* Timeline */}
         <Card p="xl" withBorder>
           <Title order={3} mb="md">
-            Company Information
+            Timeline
           </Title>
           <Stack gap="md">
-            <div>
-              <Text size="sm" c="dimmed" mb={4}>
-                Company Name
+            <Group>
+              <Text fw={500} style={{ minWidth: '120px' }}>
+                First Seen:
               </Text>
-              <Text>{job.company?.name || 'Not specified'}</Text>
-            </div>
-            {job.company?.website && (
-              <div>
-                <Text size="sm" c="dimmed" mb={4}>
-                  Website
-                </Text>
-                <Text>
-                  <a
-                    href={job.company.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit', textDecoration: 'underline' }}
-                  >
-                    {job.company.website}
-                  </a>
-                </Text>
-              </div>
-            )}
-            <div>
-              <Text size="sm" c="dimmed" mb={4}>
-                Location
+              <Text size="sm">
+                {lead.firstSeenAt
+                  ? formatDate(lead.firstSeenAt)
+                  : formatDate(lead.createdAt)}
               </Text>
-              <Text>
-                {job.location || job.company?.location || 'Not specified'}
+            </Group>
+            <Group>
+              <Text fw={500} style={{ minWidth: '120px' }}>
+                Created:
               </Text>
-            </div>
-          </Stack>
-        </Card>
-
-        {/* Additional Information */}
-        <Card p="xl" withBorder>
-          <Title order={3} mb="md">
-            Additional Information
-          </Title>
-          <Stack gap="md">
-            {job.url && (
-              <div>
-                <Text size="sm" c="dimmed" mb={4}>
-                  Job URL
+              <Text size="sm">{formatDate(lead.createdAt)}</Text>
+            </Group>
+            {lead.updatedAt && lead.updatedAt !== lead.createdAt && (
+              <Group>
+                <Text fw={500} style={{ minWidth: '120px' }}>
+                  Updated:
                 </Text>
-                <Text>
-                  <a
-                    href={job.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit', textDecoration: 'underline' }}
-                  >
-                    {job.url}
-                  </a>
-                </Text>
-              </div>
-            )}
-            {job.description && (
-              <div>
-                <Text size="sm" c="dimmed" mb={4}>
-                  Job Description
-                </Text>
-                <Text style={{ whiteSpace: 'pre-wrap' }}>
-                  {job.description}
-                </Text>
-              </div>
+                <Text size="sm">{formatDate(lead.updatedAt)}</Text>
+              </Group>
             )}
           </Stack>
         </Card>

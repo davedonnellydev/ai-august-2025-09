@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Landing } from '../components/Landing/Landing';
-import { Jobs } from '../components/Jobs/Jobs';
+import { Leads } from '../components/Jobs/Jobs';
 import {
   AppShell,
   Container,
@@ -20,10 +20,12 @@ const userID: string = '2d30743e-10cb-4490-933c-4ccdf37364e9';
 function HomePageContent() {
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] =
     useDisclosure(false);
-  const [currentView, setCurrentView] = useState<'landing' | 'jobs'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'leads'>(
+    'landing'
+  );
   const { userId } = useUser();
 
-  const handleNavigation = (view: 'landing' | 'jobs') => {
+  const handleNavigation = (view: 'landing' | 'leads') => {
     setCurrentView(view);
     // Close mobile menu when navigating
     if (mobileOpened) {
@@ -33,8 +35,8 @@ function HomePageContent() {
 
   const renderMainContent = () => {
     switch (currentView) {
-      case 'jobs':
-        return <Jobs userId={userId} />;
+      case 'leads':
+        return <Leads userId={userId} />;
       default:
         return <Landing userId={userId} />;
     }
@@ -68,11 +70,11 @@ function HomePageContent() {
             {/* Desktop Navigation */}
             <Group gap="md" visibleFrom="sm">
               <Button
-                variant={currentView === 'jobs' ? 'filled' : 'subtle'}
+                variant={currentView === 'leads' ? 'filled' : 'subtle'}
                 component="button"
-                onClick={() => handleNavigation('jobs')}
+                onClick={() => handleNavigation('leads')}
               >
-                Jobs
+                Leads
               </Button>
               {/* <Button variant="subtle" component="a" href="#applications">
                 Applications
@@ -112,13 +114,13 @@ function HomePageContent() {
               Dashboard
             </Button>
             <Button
-              variant={currentView === 'jobs' ? 'filled' : 'subtle'}
+              variant={currentView === 'leads' ? 'filled' : 'subtle'}
               fullWidth
               justify="start"
               component="button"
-              onClick={() => handleNavigation('jobs')}
+              onClick={() => handleNavigation('leads')}
             >
-              Jobs
+              Leads
             </Button>
             {/* <Button
               variant="subtle"

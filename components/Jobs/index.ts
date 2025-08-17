@@ -1,4 +1,2 @@
-export { Jobs } from './Jobs';
-export { NewJob } from './NewJob';
+export { Leads } from './Jobs';
 export { ViewJob } from './ViewJob';
-export { EditJob } from './EditJob';

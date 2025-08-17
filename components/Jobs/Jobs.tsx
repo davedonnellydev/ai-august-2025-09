@@ -8,7 +8,6 @@ import {
   Badge,
   Container,
   Title,
-  Button,
   LoadingOverlay,
   Alert,
   Card,
@@ -17,84 +16,65 @@ import {
   Box,
   Select,
 } from '@mantine/core';
-import {
-  IconPlus,
-  IconEye,
-  IconEdit,
-  IconAlertCircle,
-} from '@tabler/icons-react';
-import { NewJob } from './NewJob';
+import { IconEye, IconAlertCircle } from '@tabler/icons-react';
 import { ViewJob } from './ViewJob';
-import { EditJob } from './EditJob';
 
-interface Company {
+interface Lead {
   id: string;
-  name: string;
+  url: string;
+  type: string;
+  title?: string;
+  company?: string;
   location?: string;
-}
-
-interface JobListing {
-  id: string;
-  title: string;
-  company: Company;
-  location?: string;
-  status:
-    | 'new'
-    | 'ready'
-    | 'applied'
-    | 'interview'
-    | 'offer'
-    | 'rejected'
-    | 'archived';
-  decision: 'undecided' | 'apply' | 'skip';
+  status: 'new' | 'undecided' | 'added_to_huntr' | 'rejected' | 'duplicate';
   createdAt: string;
 }
 
-interface JobsProps {
+interface LeadsProps {
   userId: string;
 }
 
-type ViewMode = 'list' | 'new' | 'view' | 'edit';
+type ViewMode = 'list' | 'view';
 
-const decisionOptions = [
+const statusOptions = [
+  { value: 'new', label: 'New' },
   { value: 'undecided', label: 'Undecided' },
-  { value: 'apply', label: 'Apply' },
-  { value: 'skip', label: 'Skip' },
+  { value: 'added_to_huntr', label: 'Added to Huntr' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'duplicate', label: 'Duplicate' },
 ];
 
-export function Jobs({ userId }: JobsProps) {
-  const [jobs, setJobs] = useState<JobListing[]>([]);
+export function Leads({ userId }: LeadsProps) {
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [editingDecision, setEditingDecision] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const selectRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (userId && viewMode === 'list') {
-      fetchJobs();
+      fetchLeads();
     }
   }, [userId, viewMode]);
 
-  const fetchJobs = async () => {
+  const fetchLeads = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(
-        `/api/jobs?userId=${encodeURIComponent(userId)}`
-      );
+      const response = await fetch('/api/leads');
       const result = await response.json();
 
-      if (result.success) {
-        setJobs(Array.isArray(result.data) ? result.data : []);
+      if (result.leads) {
+        setLeads(Array.isArray(result.leads) ? result.leads : []);
       } else {
-        setError(result.error || 'Failed to fetch jobs');
-        setJobs([]);
+        setError(result.error || 'Failed to fetch leads');
+        setLeads([]);
       }
     } catch (err) {
       setError('Network error occurred');
-      setJobs([]);
+      setLeads([]);
     } finally {
       setLoading(false);
     }
@@ -103,23 +83,24 @@ export function Jobs({ userId }: JobsProps) {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       new: 'blue',
-      ready: 'yellow',
-      applied: 'orange',
-      interview: 'purple',
-      offer: 'green',
+      undecided: 'gray',
+      added_to_huntr: 'green',
       rejected: 'red',
-      archived: 'gray',
+      duplicate: 'orange',
     };
     return colors[status] || 'gray';
   };
 
-  const getDecisionColor = (decision: string) => {
+  const getTypeColor = (type: string) => {
     const colors: Record<string, string> = {
-      undecided: 'gray',
-      apply: 'green',
-      skip: 'red',
+      job_posting: 'blue',
+      job_list: 'green',
+      company: 'purple',
+      unsubscribe: 'red',
+      tracking: 'yellow',
+      other: 'gray',
     };
-    return colors[decision] || 'gray';
+    return colors[type] || 'gray';
   };
 
   const formatDate = (dateString: string) => {
@@ -130,128 +111,78 @@ export function Jobs({ userId }: JobsProps) {
     });
   };
 
-  const handleViewJob = (jobId: string) => {
-    setSelectedJobId(jobId);
-    setViewMode('view');
-  };
-
-  const handleEditJob = (jobId: string) => {
-    setSelectedJobId(jobId);
-    setViewMode('edit');
-  };
-
-  const handleNewJob = () => {
-    setViewMode('new');
-  };
-
-  const handleBackToJobs = () => {
-    setViewMode('list');
-    setSelectedJobId(null);
-    // Refresh the jobs list to show any changes
-    fetchJobs();
-  };
-
-  const handleBackToView = () => {
-    setViewMode('view');
-  };
-
-  const handleDecisionEdit = (jobId: string) => {
-    setEditingDecision(jobId);
-  };
-
-  const handleDecisionChange = async (
-    jobId: string,
-    newDecision: string,
-    currentDecision: string
-  ) => {
-    console.log('handleDecisionChange called:', {
-      jobId,
-      newDecision,
-      currentDecision,
-    });
-
-    // Only save if the decision actually changed
-    if (newDecision !== currentDecision) {
-      console.log('Decision changed, making API call...');
-      try {
-        const currentJob = jobs.find((job) => job.id === jobId);
-        if (!currentJob) {
-          console.error('Job not found in local state');
-          return;
-        }
-
-        const requestBody = {
-          title: currentJob.title,
-          location:
-            currentJob.location || currentJob.company?.location || 'Remote',
-          decision: newDecision,
-        };
-
-        console.log('Sending request body:', requestBody);
-
-        const response = await fetch(
-          `/api/jobs/${jobId}?userId=${encodeURIComponent(userId)}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          }
-        );
-
-        const result = await response.json();
-        console.log('API response:', result);
-
-        if (result.success) {
-          console.log('Successfully updated decision, updating local state...');
-          // Update the local state
-          setJobs((prevJobs) =>
-            prevJobs.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    decision: newDecision as 'undecided' | 'apply' | 'skip',
-                  }
-                : job
-            )
-          );
-        } else {
-          console.error('Failed to update decision:', result.error);
-          // You might want to show a toast notification here
-        }
-      } catch (err) {
-        console.error('Error updating decision:', err);
-        // You might want to show a toast notification here
-      }
-    } else {
-      console.log('Decision unchanged, skipping API call');
+  const getUrlDisplay = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      return {
+        host: urlObj.hostname,
+        path: urlObj.pathname,
+      };
+    } catch {
+      return {
+        host: 'Invalid URL',
+        path: '',
+      };
     }
   };
 
-  // Render different components based on view mode
-  if (viewMode === 'new') {
-    return <NewJob userId={userId} onBack={handleBackToJobs} />;
-  }
+  const handleViewLead = (leadId: string) => {
+    setSelectedLeadId(leadId);
+    setViewMode('view');
+  };
 
-  if (viewMode === 'view' && selectedJobId) {
+  const handleBackToLeads = () => {
+    setViewMode('list');
+    setSelectedLeadId(null);
+    // Refresh the leads list to show any changes
+    fetchLeads();
+  };
+
+  const handleStatusEdit = (leadId: string) => {
+    setEditingStatus(leadId);
+  };
+
+  const handleStatusChange = async (
+    leadId: string,
+    newStatus: string,
+    currentStatus: string
+  ) => {
+    // Only save if the status actually changed
+    if (newStatus !== currentStatus) {
+      try {
+        const response = await fetch(`/api/leads/${leadId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        if (response.ok) {
+          // Update local state
+          setLeads((prevLeads) =>
+            prevLeads.map((lead) =>
+              lead.id === leadId ? { ...lead, status: newStatus as any } : lead
+            )
+          );
+        } else {
+          console.error('Failed to update lead status');
+        }
+      } catch (error) {
+        console.error('Error updating lead status:', error);
+      }
+    }
+    setEditingStatus(null);
+  };
+
+  // Render view component if needed
+  if (viewMode === 'view' && selectedLeadId) {
     return (
       <ViewJob
-        jobId={selectedJobId}
+        jobId={selectedLeadId}
         userId={userId}
-        onBack={handleBackToJobs}
-        onEdit={() => setViewMode('edit')}
-      />
-    );
-  }
-
-  if (viewMode === 'edit' && selectedJobId) {
-    return (
-      <EditJob
-        jobId={selectedJobId}
-        userId={userId}
-        onBack={handleBackToView}
-        onSave={handleBackToJobs}
+        onBack={handleBackToLeads}
+        onEdit={() => {}} // No edit functionality for leads
       />
     );
   }
@@ -268,7 +199,7 @@ export function Jobs({ userId }: JobsProps) {
     return (
       <Container size="xl" py="xl">
         <Alert
-          icon={<IconAlertCircle size={16} />}
+          icon={<IconAlertCircle size="1rem" />}
           title="Error"
           color="red"
           variant="filled"
@@ -282,29 +213,18 @@ export function Jobs({ userId }: JobsProps) {
   return (
     <Container size="xl" py="xl">
       <Group justify="space-between" mb="xl">
-        <Title order={1}>Job Listings</Title>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={handleNewJob}
-          size="md"
-        >
-          Add New Job
-        </Button>
+        <Title order={1}>Leads</Title>
       </Group>
 
-      {jobs.length === 0 ? (
+      {leads.length === 0 ? (
         <Card p="xl" ta="center">
           <Text c="dimmed" size="lg">
-            No job listings found. Start by adding your first job!
+            No leads found
           </Text>
-          <Button
-            variant="outline"
-            onClick={handleNewJob}
-            mt="md"
-            leftSection={<IconPlus size={16} />}
-          >
-            Add Your First Job
-          </Button>
+          <Text c="dimmed" size="sm">
+            Leads will appear here once you configure watched labels and sync
+            your Gmail.
+          </Text>
         </Card>
       ) : (
         <Card p={0} withBorder>
@@ -312,121 +232,122 @@ export function Jobs({ userId }: JobsProps) {
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>URL</Table.Th>
+                  <Table.Th>Type</Table.Th>
                   <Table.Th>Title</Table.Th>
                   <Table.Th>Company</Table.Th>
                   <Table.Th>Location</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Decision</Table.Th>
-                  <Table.Th>Added</Table.Th>
+                  <Table.Th>First Seen</Table.Th>
                   <Table.Th>Actions</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {Array.isArray(jobs) &&
-                  jobs.map((job) => (
-                    <Table.Tr key={job.id}>
-                      <Table.Td>
-                        <Text fw={500} size="sm">
-                          {job.title || 'Untitled'}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">
-                          {job.company?.name || 'Unknown Company'}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" c="dimmed">
-                          {job.location || job.company?.location || 'Remote'}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={getStatusColor(job.status)}
-                          variant="light"
-                          size="sm"
-                        >
-                          {job.status.charAt(0).toUpperCase() +
-                            job.status.slice(1)}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        {editingDecision === job.id ? (
-                          <Select
-                            ref={selectRef}
-                            size="xs"
-                            data={decisionOptions}
-                            value={job.decision}
-                            onChange={async (value) => {
-                              console.log(
-                                'Select onChange triggered with value:',
-                                value
-                              );
-                              // Always call handleDecisionChange, let it handle the logic
-                              if (value !== null && value !== undefined) {
-                                await handleDecisionChange(
-                                  job.id,
-                                  value,
-                                  job.decision
-                                );
-                              }
-                            }}
-                            onDropdownClose={() => {
-                              console.log('Dropdown closed');
-                              // Only close if we're not in the middle of processing a change
-                              setTimeout(() => {
-                                if (editingDecision === job.id) {
-                                  setEditingDecision(null);
+                {Array.isArray(leads) &&
+                  leads.map((lead) => {
+                    const urlDisplay = getUrlDisplay(lead.url);
+                    return (
+                      <Table.Tr key={lead.id}>
+                        <Table.Td>
+                          {editingStatus === lead.id ? (
+                            <Select
+                              ref={selectRef}
+                              size="xs"
+                              data={statusOptions}
+                              value={lead.status}
+                              onChange={async (value) => {
+                                if (value !== null && value !== undefined) {
+                                  await handleStatusChange(
+                                    lead.id,
+                                    value,
+                                    lead.status
+                                  );
                                 }
-                              }, 100);
-                            }}
-                            style={{ width: 'auto', minWidth: 'fit-content' }}
-                            autoFocus
-                          />
-                        ) : (
+                              }}
+                              onDropdownClose={() => {
+                                setTimeout(() => {
+                                  if (editingStatus === lead.id) {
+                                    setEditingStatus(null);
+                                  }
+                                }, 100);
+                              }}
+                              style={{ width: 'auto', minWidth: 'fit-content' }}
+                              autoFocus
+                            />
+                          ) : (
+                            <Badge
+                              color={getStatusColor(lead.status)}
+                              variant="light"
+                              size="sm"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => handleStatusEdit(lead.id)}
+                            >
+                              {lead.status
+                                .replace('_', ' ')
+                                .charAt(0)
+                                .toUpperCase() +
+                                lead.status.replace('_', ' ').slice(1)}
+                            </Badge>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          <div>
+                            <Text size="sm" fw={500}>
+                              {urlDisplay.host}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {urlDisplay.path}
+                            </Text>
+                          </div>
+                        </Table.Td>
+                        <Table.Td>
                           <Badge
-                            color={getDecisionColor(job.decision)}
+                            color={getTypeColor(lead.type)}
                             variant="light"
                             size="sm"
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => handleDecisionEdit(job.id)}
                           >
-                            {job.decision.charAt(0).toUpperCase() +
-                              job.decision.slice(1)}
+                            {lead.type
+                              .replace('_', ' ')
+                              .charAt(0)
+                              .toUpperCase() +
+                              lead.type.replace('_', ' ').slice(1)}
                           </Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" c="dimmed">
-                          {formatDate(job.createdAt)}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs">
-                          <Tooltip label="View Details">
-                            <ActionIcon
-                              variant="subtle"
-                              color="blue"
-                              onClick={() => handleViewJob(job.id)}
-                              aria-label="View job details"
-                            >
-                              <IconEye size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                          <Tooltip label="Edit Job">
-                            <ActionIcon
-                              variant="subtle"
-                              color="yellow"
-                              onClick={() => handleEditJob(job.id)}
-                              aria-label="Edit job"
-                            >
-                              <IconEdit size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={500}>
+                            {lead.title || '-'}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{lead.company || '-'}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">
+                            {lead.location || '-'}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">
+                            {formatDate(lead.createdAt)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Group gap="xs">
+                            <Tooltip label="View Details">
+                              <ActionIcon
+                                variant="subtle"
+                                color="blue"
+                                onClick={() => handleViewLead(lead.id)}
+                                aria-label="View lead details"
+                              >
+                                <IconEye size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </Group>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
               </Table.Tbody>
             </Table>
           </Box>

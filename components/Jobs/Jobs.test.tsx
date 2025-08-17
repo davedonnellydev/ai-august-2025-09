@@ -1,119 +1,94 @@
-import { render, screen, fireEvent, waitFor } from '@/test-utils';
-import { Jobs } from './Jobs';
+import { render, screen } from '@/test-utils';
+import { Leads } from './Jobs';
 
 // Mock fetch
 global.fetch = jest.fn();
 
-describe('Jobs component', () => {
+describe('Leads', () => {
   const mockUserId = 'test-user-id';
-  const mockJobs = [
-    {
-      id: '1',
-      title: 'Frontend Developer',
-      company: { id: '1', name: 'Acme Corp' },
-      location: 'Sydney, Australia',
-      status: 'new' as const,
-      decision: 'undecided' as const,
-      createdAt: '2025-01-15T00:00:00Z',
-    },
-    {
-      id: '2',
-      title: 'Backend Developer',
-      company: { id: '2', name: 'TechCorp' },
-      location: 'Melbourne, Australia',
-      status: 'applied' as const,
-      decision: 'apply' as const,
-      createdAt: '2025-01-14T00:00:00Z',
-    },
-  ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    (fetch as jest.Mock).mockClear();
   });
 
-  it('renders jobs list when data is loaded', async () => {
+  it('renders leads table when leads are available', async () => {
+    const mockLeads = [
+      {
+        id: '1',
+        url: 'https://example.com/job1',
+        type: 'job_posting',
+        title: 'Software Engineer',
+        company: 'Example Corp',
+        location: 'San Francisco',
+        status: 'new',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+    ];
+
     (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({ success: true, data: mockJobs }),
+      json: async () => ({ leads: mockLeads }),
     });
 
-    render(<Jobs userId={mockUserId} />);
+    render(<Leads userId={mockUserId} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Frontend Developer')).toBeInTheDocument();
-      expect(screen.getByText('Backend Developer')).toBeInTheDocument();
-      expect(screen.getByText('Acme Corp')).toBeInTheDocument();
-      expect(screen.getByText('TechCorp')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Leads')).toBeInTheDocument();
+    expect(await screen.findByText('Software Engineer')).toBeInTheDocument();
+    expect(await screen.findByText('Example Corp')).toBeInTheDocument();
+    expect(await screen.findByText('San Francisco')).toBeInTheDocument();
   });
 
-  it('shows empty state when no jobs exist', async () => {
+  it('renders empty state when no leads are available', async () => {
     (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({ success: true, data: [] }),
+      json: async () => ({ leads: [] }),
     });
 
-    render(<Jobs userId={mockUserId} />);
+    render(<Leads userId={mockUserId} />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          'No job listings found. Start by adding your first job!'
-        )
-      ).toBeInTheDocument();
-      expect(screen.getByText('Add Your First Job')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('No leads found')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Leads will appear here once you configure watched labels and sync your Gmail.'
+      )
+    ).toBeInTheDocument();
   });
 
-  it('allows inline editing of decision', async () => {
+  it('handles fetch error gracefully', async () => {
+    (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+    render(<Leads userId={mockUserId} />);
+
+    expect(
+      await screen.findByText('Network error occurred')
+    ).toBeInTheDocument();
+  });
+
+  it('displays correct table columns', async () => {
+    const mockLeads = [
+      {
+        id: '1',
+        url: 'https://example.com/job1',
+        type: 'job_posting',
+        title: 'Software Engineer',
+        company: 'Example Corp',
+        location: 'San Francisco',
+        status: 'new',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+    ];
+
     (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({ success: true, data: mockJobs }),
+      json: async () => ({ leads: mockLeads }),
     });
 
-    render(<Jobs userId={mockUserId} />);
+    render(<Leads userId={mockUserId} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Undecided')).toBeInTheDocument();
-    });
-
-    // Click on the decision badge to start editing
-    const decisionBadge = screen.getByText('Undecided');
-    fireEvent.click(decisionBadge);
-
-    // Should show the select dropdown
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('Undecided')).toBeInTheDocument();
-    });
-  });
-
-  it('auto-saves decision change when different value is selected', async () => {
-    (fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        json: async () => ({ success: true, data: mockJobs }),
-      })
-      .mockResolvedValueOnce({
-        json: async () => ({ success: true, data: mockJobs[0] }),
-      });
-
-    render(<Jobs userId={mockUserId} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Undecided')).toBeInTheDocument();
-    });
-
-    // Click on the decision badge to start editing
-    const decisionBadge = screen.getByText('Undecided');
-    fireEvent.click(decisionBadge);
-
-    // Wait for the select to appear and change the value
-    await waitFor(() => {
-      const select = screen.getByDisplayValue('Undecided');
-      fireEvent.change(select, { target: { value: 'apply' } });
-    });
-
-    // Should automatically save and show the updated decision
-    await waitFor(() => {
-      // Look for the badge specifically, not just any "Apply" text
-      const applyBadges = screen.getAllByText('Apply');
-      expect(applyBadges.length).toBeGreaterThan(0);
-    });
+    expect(await screen.findByText('Status')).toBeInTheDocument();
+    expect(await screen.findByText('URL')).toBeInTheDocument();
+    expect(await screen.findByText('Type')).toBeInTheDocument();
+    expect(await screen.findByText('Title')).toBeInTheDocument();
+    expect(await screen.findByText('Company')).toBeInTheDocument();
+    expect(await screen.findByText('Location')).toBeInTheDocument();
+    expect(await screen.findByText('First Seen')).toBeInTheDocument();
+    expect(await screen.findByText('Actions')).toBeInTheDocument();
   });
 });
