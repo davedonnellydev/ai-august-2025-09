@@ -88,10 +88,13 @@ import { Component } from '@/components/Component'; // instead of '../../../comp
 ```
 
 ## Gmail Sync Setup
+
 ### Netlify Scheduled Function
+
 The Gmail sync runs automatically every 2 hours via Netlify scheduled functions.
 
 #### Configuration
+
 1. **Environment Variables** (set in Netlify dashboard):
    ```
    CRON_SECRET=your-secret-here
@@ -103,7 +106,9 @@ The Gmail sync runs automatically every 2 hours via Netlify scheduled functions.
 2. **Schedule**: Runs every 2 hours (`0 */2 * * *`)
 
 #### Manual Trigger
+
 Test the sync function manually:
+
 ```bash
 # Set your secret
 export CRON_SECRET="your-secret-here"
@@ -112,7 +117,9 @@ export CRON_SECRET="your-secret-here"
 curl -H "Authorization: Bearer $CRON_SECRET" \
   https://your-site.netlify.app/.netlify/functions/gmail-sync
 ```
+
 #### Expected Response
+
 ```json
 {
   "success": true,
@@ -132,7 +139,9 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
   }
 }
 ```
+
 ### Sync Methods
+
 1. **History API** (preferred): Incremental sync using Gmail History API
 2. **Label Scan** (fallback): Full scan when history is not available
 
@@ -143,13 +152,17 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 - **Sync State**: Track `gmail_sync_state` table for sync position
 
 ## Development
+
 ### Prerequisites
+
 - Node.js 18+
 - Neon Postgres database
 - Google Cloud Console project with Gmail API enabled
 
 ### Setup
+
 1. **Install dependencies**:
+
    ```bash
    npm install
    ```
@@ -163,6 +176,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
    CRON_SECRET=your-secret-here
    ```
 3. **Database setup**:
+
    ```bash
    npm run db:generate  # Generate migrations
    npm run db:migrate   # Apply migrations

@@ -9,8 +9,9 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!emailText || !rawLinks || !userId || !emailId) {
       return NextResponse.json(
-        { 
-          error: 'Missing required fields. Required: emailText, rawLinks, userId, emailId' 
+        {
+          error:
+            'Missing required fields. Required: emailText, rawLinks, userId, emailId',
         },
         { status: 400 }
       );
@@ -59,17 +60,17 @@ export async function POST(request: NextRequest) {
       data: result,
       message: `Successfully extracted ${result.leads.length} job leads`,
     });
-
   } catch (error) {
     console.error('Extraction API error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    
+
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error occurred';
+
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: errorMessage,
-        message: 'Failed to extract job leads'
+        message: 'Failed to extract job leads',
       },
       { status: 500 }
     );
@@ -83,21 +84,25 @@ export async function GET() {
       method: 'POST',
       body: {
         emailText: 'string - Email content to analyze',
-        rawLinks: 'Array<{url: string, anchorText?: string}> - Links found in email',
+        rawLinks:
+          'Array<{url: string, anchorText?: string}> - Links found in email',
         customInstructions: 'string? - Optional custom extraction rules',
         userId: 'string - User ID for tracking',
-        emailId: 'string - Email ID for tracking'
+        emailId: 'string - Email ID for tracking',
       },
       example: {
         emailText: 'We have a great opportunity for a Frontend Developer...',
         rawLinks: [
-          { url: 'https://company.com/jobs/frontend-dev', anchorText: 'Apply Now' },
-          { url: 'https://company.com/careers', anchorText: 'See All Jobs' }
+          {
+            url: 'https://company.com/jobs/frontend-dev',
+            anchorText: 'Apply Now',
+          },
+          { url: 'https://company.com/careers', anchorText: 'See All Jobs' },
         ],
         customInstructions: 'Focus on engineering roles only',
         userId: 'user-123',
-        emailId: 'email-456'
-      }
-    }
+        emailId: 'email-456',
+      },
+    },
   });
 }

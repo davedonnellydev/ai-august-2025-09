@@ -7,12 +7,9 @@ export async function GET(request: NextRequest) {
   try {
     // Get current user ID from session
     const userId = await getCurrentUserId();
-    
+
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Parse query parameters
@@ -21,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     // Build query conditions
     const conditions = [eq(jobLeadUrlsTable.userId, userId)];
-    
+
     if (status) {
       conditions.push(eq(jobLeadUrlsTable.status, status as any));
     }
@@ -46,7 +43,6 @@ export async function GET(request: NextRequest) {
       leads,
       count: leads.length,
     });
-
   } catch (error) {
     console.error('Error fetching leads:', error);
     return NextResponse.json(

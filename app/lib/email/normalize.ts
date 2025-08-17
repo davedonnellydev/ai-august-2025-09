@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { ExtractedLink, LinkType } from '../types/leads';
 
 export interface Payload {
   mimeType?: string;
@@ -114,43 +115,35 @@ export function cleanHtml(html: string): string {
 }
 
 /**
- * Extract links from email content
+ * Extract links from email content with enhanced heuristics
  * @param input - Email content with HTML and/or text
  * @returns Array of extracted links with classification
  */
 export function extractLinks(input: {
   html?: string;
   text?: string;
-}): LinkInfo[] {
-  const links: LinkInfo[] = [];
-  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+}): ExtractedLink[] {
+  const links: ExtractedLink[] = [];
+  const seenUrls = new Set<string>();
 
-  // Extract from HTML if available
+  // Extract from HTML if available (with anchor text)
   if (input.html) {
-    const htmlUrls = input.html.match(urlRegex) || [];
-    htmlUrls.forEach((url) => {
-      const linkInfo = classifyAndNormalizeLink(url);
-      if (
-        !links.some(
-          (existing) => existing.normalizedUrl === linkInfo.normalizedUrl
-        )
-      ) {
-        links.push(linkInfo);
+    const htmlLinks = extractLinksFromHtml(input.html);
+    htmlLinks.forEach((link) => {
+      if (!seenUrls.has(link.normalizedUrl)) {
+        seenUrls.add(link.normalizedUrl);
+        links.push(link);
       }
     });
   }
 
   // Extract from text if available
   if (input.text) {
-    const textUrls = input.text.match(urlRegex) || [];
-    textUrls.forEach((url) => {
-      const linkInfo = classifyAndNormalizeLink(url);
-      if (
-        !links.some(
-          (existing) => existing.normalizedUrl === linkInfo.normalizedUrl
-        )
-      ) {
-        links.push(linkInfo);
+    const textLinks = extractLinksFromText(input.text);
+    textLinks.forEach((link) => {
+      if (!seenUrls.has(link.normalizedUrl)) {
+        seenUrls.add(link.normalizedUrl);
+        links.push(link);
       }
     });
   }
@@ -159,24 +152,191 @@ export function extractLinks(input: {
 }
 
 /**
- * Classify and normalize a single link
+ * Extract links from HTML with anchor text
  */
-function classifyAndNormalizeLink(url: string): LinkInfo {
-  const normalizedUrl = url.replace(/[<>"{}|\\^`[\]]/g, '');
+function extractLinksFromHtml(html: string): ExtractedLink[] {
+  const links: ExtractedLink[] = [];
+
+  // Match anchor tags with href and text content
+  const anchorRegex = /<a[^>]*href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi;
+  let match;
+
+  while ((match = anchorRegex.exec(html)) !== null) {
+    const [, url, anchorText] = match;
+    const cleanAnchorText = anchorText.trim();
+
+    if (url && isValidUrl(url)) {
+      const linkInfo = classifyAndNormalizeLink(url, cleanAnchorText);
+      links.push(linkInfo);
+    }
+  }
+
+  // Also extract any remaining URLs that might not be in anchor tags
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+  const urls = html.match(urlRegex) || [];
+
+  urls.forEach((url) => {
+    if (!links.some((link) => link.url === url)) {
+      const linkInfo = classifyAndNormalizeLink(url);
+      links.push(linkInfo);
+    }
+  });
+
+  return links;
+}
+
+/**
+ * Extract links from plain text
+ */
+function extractLinksFromText(text: string): ExtractedLink[] {
+  const links: ExtractedLink[] = [];
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+  const urls = text.match(urlRegex) || [];
+
+  urls.forEach((url) => {
+    const linkInfo = classifyAndNormalizeLink(url);
+    links.push(linkInfo);
+  });
+
+  return links;
+}
+
+/**
+ * Check if URL is valid
+ */
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Classify and normalize a single link with enhanced heuristics
+ */
+function classifyAndNormalizeLink(
+  url: string,
+  anchorText?: string
+): ExtractedLink {
+  const normalizedUrl = normalizeUrl(url);
   const domain = extractDomain(normalizedUrl);
 
-  let type: LinkInfo['type'] = 'other';
+  // Apply heuristics to determine link type and characteristics
+  const heuristics = analyzeLink(url, normalizedUrl, domain, anchorText);
 
+  return {
+    url,
+    normalizedUrl,
+    anchorText,
+    type: heuristics.type,
+    domain,
+    isLikelyJobList: heuristics.isLikelyJobList,
+    isUnsubscribe: heuristics.isUnsubscribe,
+    isTracking: heuristics.isTracking,
+  };
+}
+
+/**
+ * Analyze link with enhanced heuristics
+ */
+function analyzeLink(
+  _url: string,
+  normalizedUrl: string,
+  domain: string,
+  anchorText?: string
+): {
+  type: LinkType;
+  isLikelyJobList: boolean;
+  isUnsubscribe: boolean;
+  isTracking: boolean;
+} {
+  let type: LinkType = 'other';
+  let isLikelyJobList = false;
+  let isUnsubscribe = false;
+  let isTracking = false;
+
+  // Check for job list patterns (careers pages, job listings) first
+  if (isJobListUrl(normalizedUrl, domain, anchorText)) {
+    type = 'job_list';
+    isLikelyJobList = true;
+  }
   // Check for job posting patterns
-  if (isJobPostingUrl(normalizedUrl, domain)) {
+  else if (isJobPostingUrl(normalizedUrl, domain)) {
     type = 'job_posting';
   }
+  // Check for company pages
+  else if (isCompanyUrl(normalizedUrl, domain)) {
+    type = 'company';
+  }
   // Check for unsubscribe patterns
-  else if (isUnsubscribeUrl(normalizedUrl)) {
+  else if (isUnsubscribeUrl(normalizedUrl, anchorText)) {
     type = 'unsubscribe';
+    isUnsubscribe = true;
+  }
+  // Check for tracking patterns
+  else if (isTrackingUrl(normalizedUrl, domain)) {
+    type = 'tracking';
+    isTracking = true;
   }
 
-  return { url, normalizedUrl, domain, type };
+  return { type, isLikelyJobList, isUnsubscribe, isTracking };
+}
+
+/**
+ * Normalize URL by removing tracking parameters and fragments
+ */
+export function normalizeUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+
+    // Remove tracking parameters
+    const trackingParams = [
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'fbclid',
+      'gclid',
+      'mc_eid',
+      'igshid',
+      'vero_id',
+      'mc_cid',
+      'mc_eid',
+      'mc_tc',
+      'mc_rid',
+      'mc_lid',
+      'mc_sid',
+      'mc_uid',
+      'mc_oid',
+      'mc_geo',
+      'mc_cc',
+      'mc_ll',
+      'mc_zip',
+      'mc_phone',
+      'mc_company',
+      'mc_jobtitle',
+    ];
+
+    trackingParams.forEach((param) => {
+      urlObj.searchParams.delete(param);
+    });
+
+    // Remove fragments
+    urlObj.hash = '';
+
+    // Remove empty query string if no params remain
+    if (urlObj.searchParams.toString() === '') {
+      urlObj.search = '';
+    }
+
+    return urlObj.toString();
+  } catch {
+    // Fallback: basic cleaning if URL parsing fails
+    return url.replace(/[<>"{}|\\^`[\]]/g, '').replace(/[?#].*$/, '');
+  }
 }
 
 /**
@@ -206,6 +366,13 @@ function isJobPostingUrl(url: string, domain: string): boolean {
     'lever.co',
     'indeed.com',
     'glassdoor.com',
+    'ziprecruiter.com',
+    'careerbuilder.com',
+    'monster.com',
+    'dice.com',
+    'angel.co',
+    'stackoverflow.com',
+    'builtin.com',
   ];
 
   const jobPatterns = [
@@ -216,6 +383,10 @@ function isJobPostingUrl(url: string, domain: string): boolean {
     /\/apply\//i,
     /\/recruitment\//i,
     /\/hiring\//i,
+    /\/posting\//i,
+    /\/vacancy\//i,
+    /\/opportunity\//i,
+    /\/role\//i,
   ];
 
   // Check domain
@@ -237,17 +408,134 @@ function isJobPostingUrl(url: string, domain: string): boolean {
 }
 
 /**
+ * Check if URL is likely a job list/careers page
+ */
+function isJobListUrl(
+  url: string,
+  _domain: string,
+  anchorText?: string
+): boolean {
+  // Check anchor text patterns
+  if (anchorText) {
+    const jobListPatterns = [
+      /(see\s+(all\s+)?jobs?|browse\s+jobs?|careers?|view\s+all|more\s+jobs?)/i,
+      /(job\s+board|career\s+opportunities|open\s+positions)/i,
+    ];
+
+    if (jobListPatterns.some((pattern) => pattern.test(anchorText))) {
+      return true;
+    }
+  }
+
+  // Check URL path patterns
+  const jobListPathPatterns = [
+    /\/careers?(\/)?$/i,
+    /\/jobs?(\/)?$/i,
+    /\/opportunities(\/)?$/i,
+    /\/openings(\/)?$/i,
+    /\/positions(\/)?$/i,
+    /\/hiring(\/)?$/i,
+  ];
+
+  if (jobListPathPatterns.some((pattern) => pattern.test(url))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if URL is likely a company page
+ */
+function isCompanyUrl(url: string, _domain: string): boolean {
+  const companyPatterns = [
+    /\/about(\/)?$/i,
+    /\/company(\/)?$/i,
+    /\/team(\/)?$/i,
+    /\/culture(\/)?$/i,
+    /\/values(\/)?$/i,
+    /\/contact(\/)?$/i,
+  ];
+
+  return companyPatterns.some((pattern) => pattern.test(url));
+}
+
+/**
  * Check if URL is likely an unsubscribe link
  */
-function isUnsubscribeUrl(url: string): boolean {
-  const unsubscribePatterns = [
+function isUnsubscribeUrl(url: string, anchorText?: string): boolean {
+  // Check anchor text first
+  if (anchorText) {
+    const unsubscribePatterns = [
+      /unsubscribe/i,
+      /opt.?out/i,
+      /remove/i,
+      /unsub/i,
+      /stop\s+emails/i,
+      /email\s+preferences/i,
+      /manage\s+subscription/i,
+    ];
+
+    if (unsubscribePatterns.some((pattern) => pattern.test(anchorText))) {
+      return true;
+    }
+  }
+
+  // Check URL patterns
+  const unsubscribeUrlPatterns = [
     /unsubscribe/i,
     /opt.?out/i,
     /remove/i,
     /unsub/i,
+    /email\s+preferences/i,
+    /subscription/i,
+    /manage/i,
   ];
 
-  return unsubscribePatterns.some((pattern) => pattern.test(url));
+  return unsubscribeUrlPatterns.some((pattern) => pattern.test(url));
+}
+
+/**
+ * Check if URL is likely a tracking/redirect link
+ */
+function isTrackingUrl(url: string, _domain: string): boolean {
+  const trackingDomains = [
+    'go.redirectingat.com',
+    'click.email',
+    'track.email',
+    'links.email',
+    'click.newsletter',
+    'track.newsletter',
+    'go.newsletter',
+    'link.newsletter',
+  ];
+
+  const trackingPatterns = [
+    /\/click\//i,
+    /\/track\//i,
+    /\/go\//i,
+    /\/link\//i,
+    /\/redirect\//i,
+    /\/forward\//i,
+    /\/bounce\//i,
+  ];
+
+  // Check domain
+  if (trackingDomains.some((d) => _domain.includes(d))) {
+    return true;
+  }
+
+  // Check URL patterns
+  if (trackingPatterns.some((pattern) => pattern.test(url))) {
+    return true;
+  }
+
+  // Check for common tracking parameters
+  if (url.includes('utm_') || url.includes('fbclid') || url.includes('gclid')) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -299,12 +587,13 @@ function runTests() {
   );
   console.log('   Extracted text:', `${extractedText.substring(0, 100)}...`);
 
-  // Test 2: Link extraction and classification
+  // Test 2: Enhanced link extraction and classification
   const testInput = {
     html: `
       <a href="https://seek.com.au/jobs/123">Apply here</a>
-      <a href="https://company.com/careers">Careers</a>
+      <a href="https://company.com/careers">See all jobs</a>
       <a href="https://newsletter.com/unsubscribe">Unsubscribe</a>
+      <a href="https://tracking.com/click/abc123">Click here</a>
       <a href="https://other.com/page">Other link</a>
     `,
     text: 'Check out https://linkedin.com/jobs/456',
@@ -312,17 +601,34 @@ function runTests() {
 
   const links = extractLinks(testInput);
   const jobLinks = links.filter((l) => l.type === 'job_posting');
+  const jobListLinks = links.filter((l) => l.type === 'job_list');
   const unsubscribeLinks = links.filter((l) => l.type === 'unsubscribe');
+  const trackingLinks = links.filter((l) => l.type === 'tracking');
 
-  console.log('✅ Link extraction:', links.length >= 4 ? 'PASS' : 'FAIL');
-  console.log('   Job links:', jobLinks.length);
+  console.log(
+    '✅ Enhanced link extraction:',
+    links.length >= 5 ? 'PASS' : 'FAIL'
+  );
+  console.log('   Job posting links:', jobLinks.length);
+  console.log('   Job list links:', jobListLinks.length);
   console.log('   Unsubscribe links:', unsubscribeLinks.length);
+  console.log('   Tracking links:', trackingLinks.length);
   console.log(
     '   All links:',
     links.map((l) => `${l.domain} (${l.type})`)
   );
 
-  // Test 3: Hash stability
+  // Test 3: URL normalization
+  const testUrl =
+    'https://example.com/jobs?utm_source=email&utm_campaign=jobs#section';
+  const normalized = normalizeUrl(testUrl);
+  const noTracking = !normalized.includes('utm_') && !normalized.includes('#');
+
+  console.log('✅ URL normalization:', noTracking ? 'PASS' : 'FAIL');
+  console.log('   Original:', testUrl);
+  console.log('   Normalized:', normalized);
+
+  // Test 4: Hash stability
   const message1 = {
     from: 'test@example.com',
     subject: 'Job Opportunity',

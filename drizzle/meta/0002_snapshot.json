@@ -236,12 +236,8 @@
           "name": "email_messages_user_id_users_id_fk",
           "tableFrom": "email_messages",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -387,12 +383,8 @@
           "name": "extraction_jobs_user_id_users_id_fk",
           "tableFrom": "extraction_jobs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -400,12 +392,8 @@
           "name": "extraction_jobs_email_id_email_messages_id_fk",
           "tableFrom": "extraction_jobs",
           "tableTo": "email_messages",
-          "columnsFrom": [
-            "email_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -509,12 +497,8 @@
           "name": "gmail_labels_cache_user_id_users_id_fk",
           "tableFrom": "gmail_labels_cache",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -602,12 +586,8 @@
           "name": "gmail_tokens_user_id_users_id_fk",
           "tableFrom": "gmail_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -853,12 +833,8 @@
           "name": "job_lead_urls_user_id_users_id_fk",
           "tableFrom": "job_lead_urls",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -866,12 +842,8 @@
           "name": "job_lead_urls_email_id_email_messages_id_fk",
           "tableFrom": "job_lead_urls",
           "tableTo": "email_messages",
-          "columnsFrom": [
-            "email_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -879,12 +851,8 @@
           "name": "job_lead_urls_extraction_job_id_extraction_jobs_id_fk",
           "tableFrom": "job_lead_urls",
           "tableTo": "extraction_jobs",
-          "columnsFrom": [
-            "extraction_job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["extraction_job_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1008,12 +976,8 @@
           "name": "sync_state_user_id_users_id_fk",
           "tableFrom": "sync_state",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1075,12 +1039,8 @@
           "name": "user_settings_user_id_users_id_fk",
           "tableFrom": "user_settings",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1145,9 +1105,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -1159,23 +1117,12 @@
     "public.extraction_status": {
       "name": "extraction_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "processing",
-        "succeeded",
-        "failed"
-      ]
+      "values": ["pending", "processing", "succeeded", "failed"]
     },
     "public.job_status": {
       "name": "job_status",
       "schema": "public",
-      "values": [
-        "new",
-        "undecided",
-        "added_to_huntr",
-        "rejected",
-        "duplicate"
-      ]
+      "values": ["new", "undecided", "added_to_huntr", "rejected", "duplicate"]
     },
     "public.email_link_type": {
       "name": "email_link_type",
@@ -1192,18 +1139,12 @@
     "public.email_parse_status": {
       "name": "email_parse_status",
       "schema": "public",
-      "values": [
-        "unprocessed",
-        "parsed",
-        "failed"
-      ]
+      "values": ["unprocessed", "parsed", "failed"]
     },
     "public.email_provider": {
       "name": "email_provider",
       "schema": "public",
-      "values": [
-        "gmail"
-      ]
+      "values": ["gmail"]
     }
   },
   "schemas": {},

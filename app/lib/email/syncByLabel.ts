@@ -1,7 +1,11 @@
 import { getGmail } from '../google/gmailClient';
 import { extractPlainText, extractLinks, hashMessage } from './normalize';
 import { upsertEmailMessage, upsertEmailLinks } from './upsert';
-import { extractMessageData, calculateJobSignalScore, extractHtmlFromPayload } from './shared';
+import {
+  extractMessageData,
+  calculateJobSignalScore,
+  extractHtmlFromPayload,
+} from './shared';
 import { gmail_v1 } from 'googleapis';
 
 export interface SyncByLabelOptions {
@@ -141,7 +145,9 @@ export async function syncByLabel({
         // Step 7: Extract and upsert links from ORIGINAL HTML (before cleaning)
         if (bodyText || bodyHtmlRaw) {
           const links = extractLinks({
-            html: bodyHtmlRaw ? Buffer.from(bodyHtmlRaw, 'base64').toString() : undefined,
+            html: bodyHtmlRaw
+              ? Buffer.from(bodyHtmlRaw, 'base64').toString()
+              : undefined,
             text: bodyText,
           });
 

@@ -66,7 +66,10 @@ export function extractMessageData(message: gmail_v1.Schema$Message): {
 /**
  * Calculate naive job signal score based on keyword matches
  */
-export function calculateJobSignalScore(subject: string, bodyText: string): string {
+export function calculateJobSignalScore(
+  subject: string,
+  bodyText: string
+): string {
   const keywords = [
     'role',
     'job',
@@ -114,9 +117,12 @@ export function calculateJobSignalScore(subject: string, bodyText: string): stri
 /**
  * Extract HTML content from Gmail message payload
  */
-export function extractHtmlFromPayload(payload: gmail_v1.Schema$MessagePart): string | undefined {
-  const htmlData = payload.body?.data ||
+export function extractHtmlFromPayload(
+  payload: gmail_v1.Schema$MessagePart
+): string | undefined {
+  const htmlData =
+    payload.body?.data ||
     payload.parts?.find((p) => p.mimeType === 'text/html')?.body?.data;
-  
+
   return htmlData || undefined;
 }

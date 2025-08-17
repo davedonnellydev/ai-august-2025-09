@@ -6,7 +6,13 @@ import OpenAI from 'openai';
 export type LeadCandidate = {
   url: string;
   normalizedUrl: string;
-  type: 'job_posting' | 'job_list' | 'company' | 'unsubscribe' | 'tracking' | 'other';
+  type:
+    | 'job_posting'
+    | 'job_list'
+    | 'company'
+    | 'unsubscribe'
+    | 'tracking'
+    | 'other';
   title?: string;
   company?: string;
   location?: string;
@@ -42,34 +48,48 @@ export interface ExtractionResult {
 function normalizeUrl(url: string): string {
   try {
     const urlObj = new URL(url);
-    
+
     // Convert hostname to lowercase
     urlObj.hostname = urlObj.hostname.toLowerCase();
-    
+
     // Remove fragments (everything after #)
     urlObj.hash = '';
-    
+
     // Remove tracking parameters
     const trackingParams = [
-      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-      'fbclid', 'gclid', 'mc_eid', 'igshid', 'vero_id', 'mc_cid',
-      'ref', 'source', 'campaign', 'medium', 'term', 'content'
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'fbclid',
+      'gclid',
+      'mc_eid',
+      'igshid',
+      'vero_id',
+      'mc_cid',
+      'ref',
+      'source',
+      'campaign',
+      'medium',
+      'term',
+      'content',
     ];
-    
+
     // Filter out tracking parameters
     const filteredParams = new URLSearchParams();
     urlObj.searchParams.forEach((value, key) => {
-      if (!trackingParams.some(param => key.toLowerCase().includes(param))) {
+      if (!trackingParams.some((param) => key.toLowerCase().includes(param))) {
         filteredParams.set(key, value);
       }
     });
     urlObj.search = filteredParams.toString();
-    
+
     // Remove empty query string if no params remain
     if (urlObj.search === '?') {
       urlObj.search = '';
     }
-    
+
     return urlObj.toString();
   } catch (error) {
     // If URL parsing fails, return original URL
@@ -83,43 +103,63 @@ function normalizeUrl(url: string): string {
  * @param links - Array of raw links with anchor text
  * @returns Filtered links that should be processed
  */
-function preFilterLinks(links: Array<{ url: string; anchorText?: string }>): Array<{ url: string; anchorText?: string }> {
+function preFilterLinks(
+  links: Array<{ url: string; anchorText?: string }>
+): Array<{ url: string; anchorText?: string }> {
   const unsubscribePatterns = [
-    /unsubscribe/i, /opt.?out/i, /remove/i, /unsub/i, /stop/i, /cancel/i
+    /unsubscribe/i,
+    /opt.?out/i,
+    /remove/i,
+    /unsub/i,
+    /stop/i,
+    /cancel/i,
   ];
-  
+
   const trackingPatterns = [
-    /tracking/i, /pixel/i, /beacon/i, /analytics/i, /monitor/i
+    /tracking/i,
+    /pixel/i,
+    /beacon/i,
+    /analytics/i,
+    /monitor/i,
   ];
-  
+
   const knownUnsubscribeDomains = [
-    'unsubscribe.com', 'optout.com', 'mailchimp.com', 'constantcontact.com',
-    'sendgrid.com', 'mailgun.com', 'klaviyo.com'
+    'unsubscribe.com',
+    'optout.com',
+    'mailchimp.com',
+    'constantcontact.com',
+    'sendgrid.com',
+    'mailgun.com',
+    'klaviyo.com',
   ];
-  
+
   return links.filter(({ url, anchorText }) => {
     const text = `${url} ${anchorText || ''}`.toLowerCase();
-    
+
     // Check for unsubscribe patterns in anchor text or URL
-    if (unsubscribePatterns.some(pattern => pattern.test(text))) {
+    if (unsubscribePatterns.some((pattern) => pattern.test(text))) {
       return false;
     }
-    
+
     // Check for tracking patterns
-    if (trackingPatterns.some(pattern => pattern.test(text))) {
+    if (trackingPatterns.some((pattern) => pattern.test(text))) {
       return false;
     }
-    
+
     // Check for known unsubscribe domains
     try {
       const urlObj = new URL(url);
-      if (knownUnsubscribeDomains.some(domain => urlObj.hostname.includes(domain))) {
+      if (
+        knownUnsubscribeDomains.some((domain) =>
+          urlObj.hostname.includes(domain)
+        )
+      ) {
         return false;
       }
     } catch {
       // If URL parsing fails, include it for further analysis
     }
-    
+
     return true;
   });
 }
@@ -131,12 +171,12 @@ function preFilterLinks(links: Array<{ url: string; anchorText?: string }>): Arr
  */
 function generateDedupeKey(candidate: LeadCandidate): string {
   const { normalizedUrl, type, company, title } = candidate;
-  
+
   // For job postings, create a more specific key
   if (type === 'job_posting' && company && title) {
     return `${company.toLowerCase().replace(/[^a-z0-9]/g, '')}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
   }
-  
+
   // For other types, use normalized URL as key
   return normalizedUrl;
 }
@@ -146,29 +186,33 @@ function generateDedupeKey(candidate: LeadCandidate): string {
  * @param input - Extraction input containing email text, links, and metadata
  * @returns Promise resolving to extraction result with leads and token usage
  */
-export async function extractJobLeads(input: ExtractionInput): Promise<ExtractionResult> {
+export async function extractJobLeads(
+  input: ExtractionInput
+): Promise<ExtractionResult> {
   const { emailText, rawLinks, customInstructions, userId, emailId } = input;
-  
+
   // Validate OpenAI API key
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OpenAI API key not configured');
   }
-  
+
   // Initialize OpenAI client
   const openai = new OpenAI({ apiKey });
-  
+
   try {
     // Step 1: Pre-filter links to remove obvious unsubscribe/tracking
     const filteredLinks = preFilterLinks(rawLinks);
-    console.log(`Pre-filtered ${rawLinks.length} links down to ${filteredLinks.length} candidates`);
-    
+    console.log(
+      `Pre-filtered ${rawLinks.length} links down to ${filteredLinks.length} candidates`
+    );
+
     // Step 2: Normalize URLs for deduplication
-    const normalizedLinks = filteredLinks.map(link => ({
+    const normalizedLinks = filteredLinks.map((link) => ({
       ...link,
-      normalizedUrl: normalizeUrl(link.url)
+      normalizedUrl: normalizeUrl(link.url),
     }));
-    
+
     // Step 3: Prepare prompt for OpenAI
     const systemPrompt = `You are an expert at analyzing job-related emails and extracting relevant job leads.
 
@@ -196,11 +240,14 @@ Focus on identifying genuine job opportunities and relevant career information. 
 ${emailText}
 
 Links to analyze:
-${normalizedLinks.map((link, index) => 
-  `${index + 1}. URL: ${link.url}
+${normalizedLinks
+  .map(
+    (link, index) =>
+      `${index + 1}. URL: ${link.url}
    Normalized: ${link.normalizedUrl}
    Anchor Text: ${link.anchorText || 'None'}`
-).join('\n\n')}
+  )
+  .join('\n\n')}
 
 Please analyze each link and provide structured output with the type, extracted information, and confidence score.`;
 
@@ -218,33 +265,46 @@ Please analyze each link and provide structured output with the type, extracted 
     // Step 5: Parse the structured output
     const outputText = response.output_text || '';
     const leads: LeadCandidate[] = [];
-    
+
     // Simple parsing of the output (in production, you might want more robust parsing)
     // This assumes the model returns a structured format
     const lines = outputText.split('\n');
     let currentLead: Partial<LeadCandidate> = {};
-    
+
     for (const line of lines) {
       const trimmed = line.trim();
-      
+
       if (trimmed.startsWith('URL:')) {
         // Save previous lead if complete
-        if (currentLead.url && currentLead.type && currentLead.confidence !== undefined) {
+        if (
+          currentLead.url &&
+          currentLead.type &&
+          currentLead.confidence !== undefined
+        ) {
           const lead = currentLead as LeadCandidate;
           lead.dedupeKey = generateDedupeKey(lead);
           leads.push(lead);
         }
-        
+
         // Start new lead
         currentLead = {
           url: trimmed.replace('URL:', '').trim(),
           normalizedUrl: '',
           type: 'other',
-          confidence: 0.5
+          confidence: 0.5,
         };
       } else if (trimmed.startsWith('Type:')) {
         const type = trimmed.replace('Type:', '').trim().toLowerCase();
-        if (['job_posting', 'job_list', 'company', 'unsubscribe', 'tracking', 'other'].includes(type)) {
+        if (
+          [
+            'job_posting',
+            'job_list',
+            'company',
+            'unsubscribe',
+            'tracking',
+            'other',
+          ].includes(type)
+        ) {
           currentLead.type = type as any;
         }
       } else if (trimmed.startsWith('Title:')) {
@@ -254,48 +314,55 @@ Please analyze each link and provide structured output with the type, extracted 
       } else if (trimmed.startsWith('Location:')) {
         currentLead.location = trimmed.replace('Location:', '').trim();
       } else if (trimmed.startsWith('Confidence:')) {
-        const confidence = parseFloat(trimmed.replace('Confidence:', '').trim());
+        const confidence = parseFloat(
+          trimmed.replace('Confidence:', '').trim()
+        );
         if (!isNaN(confidence) && confidence >= 0 && confidence <= 1) {
           currentLead.confidence = confidence;
         }
       }
     }
-    
+
     // Add the last lead if complete
-    if (currentLead.url && currentLead.type && currentLead.confidence !== undefined) {
+    if (
+      currentLead.url &&
+      currentLead.type &&
+      currentLead.confidence !== undefined
+    ) {
       const lead = currentLead as LeadCandidate;
       lead.dedupeKey = generateDedupeKey(lead);
       leads.push(lead);
     }
-    
+
     // Step 6: Post-process leads
-    const processedLeads = leads.map(lead => {
+    const processedLeads = leads.map((lead) => {
       // Ensure normalized URL is set
       if (!lead.normalizedUrl) {
         lead.normalizedUrl = normalizeUrl(lead.url);
       }
-      
+
       // Set anchor text if available
-      const originalLink = normalizedLinks.find(l => l.url === lead.url);
+      const originalLink = normalizedLinks.find((l) => l.url === lead.url);
       if (originalLink?.anchorText) {
         lead.anchorText = originalLink.anchorText;
       }
-      
+
       return lead;
     });
-    
+
     // Step 7: Return results with token usage
     return {
       leads: processedLeads,
       tokens: {
         input: response.usage?.total_tokens || 0,
-        output: 0 // OpenAI Responses API doesn't provide separate input/output token counts
-      }
+        output: 0, // OpenAI Responses API doesn't provide separate input/output token counts
+      },
     };
-    
   } catch (error) {
     console.error('Error extracting job leads:', error);
-    throw new Error(`Failed to extract job leads: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to extract job leads: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -313,8 +380,10 @@ export async function extractFromEmail(emailData: {
   emailId: string;
 }): Promise<ExtractionResult> {
   // Use text content, fallback to HTML if no text
-  const emailText = emailData.text || (emailData.html ? 'HTML content available' : 'No content');
-  
+  const emailText =
+    emailData.text ||
+    (emailData.html ? 'HTML content available' : 'No content');
+
   return extractJobLeads({
     emailText,
     rawLinks: emailData.links,

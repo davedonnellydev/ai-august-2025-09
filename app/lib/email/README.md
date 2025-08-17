@@ -5,6 +5,7 @@ This module provides utilities for managing Gmail sync state using the `sync_sta
 ## Overview
 
 The sync state tracks:
+
 - **`lastHistoryId`**: The last Gmail History API ID processed (for incremental syncs)
 - **`startedAt`**: When the current sync operation started
 - **`finishedAt`**: When the last sync operation completed (null = sync in progress)
@@ -60,7 +61,7 @@ await createSyncState('user-123', 'initial_history_999');
 ```typescript
 async function isSyncInProgress(userId: string): Promise<boolean> {
   const state = await getSyncState(userId);
-  return state ? (state.startedAt && !state.finishedAt) : false;
+  return state ? state.startedAt && !state.finishedAt : false;
 }
 ```
 
@@ -87,7 +88,10 @@ async function startSync(userId: string): Promise<void> {
 ### Complete a sync operation
 
 ```typescript
-async function finishSync(userId: string, lastHistoryId: string): Promise<void> {
+async function finishSync(
+  userId: string,
+  lastHistoryId: string
+): Promise<void> {
   await upsertSyncState(userId, {
     finishedAt: new Date(),
     lastHistoryId,

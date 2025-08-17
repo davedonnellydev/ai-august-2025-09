@@ -18,45 +18,56 @@ The extraction module analyzes email content and links to identify potential job
 ## Core Types
 
 ### `LeadCandidate`
+
 Represents a potential job lead with extracted information:
 
 ```typescript
 type LeadCandidate = {
-  url: string;                    // Original URL
-  normalizedUrl: string;          // Cleaned URL for deduplication
-  type: 'job_posting' | 'job_list' | 'company' | 'unsubscribe' | 'tracking' | 'other';
-  title?: string;                 // Job title if available
-  company?: string;               // Company name if mentioned
-  location?: string;              // Job location if specified
-  dedupeKey?: string;             // Unique identifier for deduplication
-  confidence: number;             // AI confidence score (0.0 to 1.0)
-  anchorText?: string;            // Link text from email
+  url: string; // Original URL
+  normalizedUrl: string; // Cleaned URL for deduplication
+  type:
+    | 'job_posting'
+    | 'job_list'
+    | 'company'
+    | 'unsubscribe'
+    | 'tracking'
+    | 'other';
+  title?: string; // Job title if available
+  company?: string; // Company name if mentioned
+  location?: string; // Job location if specified
+  dedupeKey?: string; // Unique identifier for deduplication
+  confidence: number; // AI confidence score (0.0 to 1.0)
+  anchorText?: string; // Link text from email
 };
 ```
 
 ### `ExtractionInput`
+
 Input data for the extraction process:
 
 ```typescript
 interface ExtractionInput {
-  emailText: string;              // Email content to analyze
-  rawLinks: Array<{               // Links found in email
+  emailText: string; // Email content to analyze
+  rawLinks: Array<{
+    // Links found in email
     url: string;
     anchorText?: string;
   }>;
-  customInstructions?: string;     // Optional user-defined rules
-  userId: string;                 // User ID for tracking
-  emailId: string;                // Email ID for tracking
+  customInstructions?: string; // Optional user-defined rules
+  userId: string; // User ID for tracking
+  emailId: string; // Email ID for tracking
 }
 ```
 
 ### `ExtractionResult`
+
 Result of the extraction process:
 
 ```typescript
 interface ExtractionResult {
-  leads: LeadCandidate[];         // Extracted job leads
-  tokens: {                       // OpenAI API token usage
+  leads: LeadCandidate[]; // Extracted job leads
+  tokens: {
+    // OpenAI API token usage
     input: number;
     output: number;
   };
@@ -76,11 +87,11 @@ const result = await extractJobLeads({
   emailText: 'We have a great opportunity for a Frontend Developer...',
   rawLinks: [
     { url: 'https://company.com/jobs/frontend-dev', anchorText: 'Apply Now' },
-    { url: 'https://company.com/careers', anchorText: 'See All Jobs' }
+    { url: 'https://company.com/careers', anchorText: 'See All Jobs' },
   ],
   customInstructions: 'Focus on engineering roles only',
   userId: 'user-123',
-  emailId: 'email-456'
+  emailId: 'email-456',
 });
 
 console.log(`Found ${result.leads.length} leads`);
@@ -100,7 +111,7 @@ const result = await extractFromEmail({
   links: [{ url: 'https://example.com', anchorText: 'Link' }],
   customInstructions: 'Custom rules...',
   userId: 'user-123',
-  emailId: 'email-456'
+  emailId: 'email-456',
 });
 ```
 
@@ -109,15 +120,18 @@ const result = await extractFromEmail({
 The module automatically normalizes URLs to improve deduplication:
 
 ### What Gets Removed:
+
 - **Tracking Parameters**: `utm_source`, `utm_medium`, `utm_campaign`, `fbclid`, `gclid`, etc.
 - **Fragments**: Everything after `#` in URLs
 - **Empty Query Strings**: `?` with no parameters
 
 ### What Gets Standardized:
+
 - **Hostnames**: Converted to lowercase
 - **URL Format**: Consistent structure for comparison
 
 ### Example:
+
 ```
 Input:  https://company.com/jobs/dev?utm_source=email&fbclid=abc123#section
 Output: https://company.com/jobs/dev
@@ -128,10 +142,12 @@ Output: https://company.com/jobs/dev
 Before sending to AI, the module filters out obvious non-job links:
 
 ### Unsubscribe Patterns:
+
 - `unsubscribe`, `opt-out`, `remove`, `unsub`, `stop`, `cancel`
 - Known unsubscribe domains: `mailchimp.com`, `constantcontact.com`, etc.
 
 ### Tracking Patterns:
+
 - `tracking`, `pixel`, `beacon`, `analytics`, `monitor`
 - Analytics domains and tracking URLs
 
@@ -140,6 +156,7 @@ Before sending to AI, the module filters out obvious non-job links:
 The OpenAI model analyzes each link and determines:
 
 ### Link Types:
+
 - **`job_posting`**: Direct link to specific job posting/application
 - **`job_list`**: Link to list of jobs (e.g., "See all jobs", "Browse careers")
 - **`company`**: Company information, careers page, about page
@@ -148,6 +165,7 @@ The OpenAI model analyzes each link and determines:
 - **`other`**: Any other relevant link
 
 ### Extracted Information:
+
 - **Job Title**: Position name if mentioned
 - **Company**: Company name if available
 - **Location**: Job location if specified
@@ -158,11 +176,13 @@ The OpenAI model analyzes each link and determines:
 Each lead gets a unique deduplication key:
 
 ### For Job Postings:
+
 ```
 Company + Title → "techcorpinc_seniorfrontenddeveloper"
 ```
 
 ### For Other Types:
+
 ```
 Normalized URL → "https://company.com/careers"
 ```
@@ -185,12 +205,11 @@ const customInstructions = `
 Use the `/api/extraction/run` endpoint for local testing:
 
 ### POST Request:
+
 ```json
 {
   "emailText": "We have a great opportunity...",
-  "rawLinks": [
-    { "url": "https://company.com/jobs", "anchorText": "Apply" }
-  ],
+  "rawLinks": [{ "url": "https://company.com/jobs", "anchorText": "Apply" }],
   "customInstructions": "Focus on engineering roles",
   "userId": "user-123",
   "emailId": "email-456"
@@ -198,6 +217,7 @@ Use the `/api/extraction/run` endpoint for local testing:
 ```
 
 ### Response:
+
 ```json
 {
   "success": true,
@@ -236,6 +256,7 @@ The module includes comprehensive error handling:
 ## Integration Examples
 
 ### With Email Sync:
+
 ```typescript
 import { extractJobLeads } from './extractJobLeads';
 
@@ -245,7 +266,7 @@ const extractionResult = await extractJobLeads({
   rawLinks: extractedLinks,
   customInstructions: userSettings.customInstructions,
   userId: email.userId,
-  emailId: email.id
+  emailId: email.id,
 });
 
 // Process extracted leads
@@ -257,12 +278,12 @@ for (const lead of extractionResult.leads) {
 ```
 
 ### With Custom Filtering:
+
 ```typescript
 // Filter high-quality leads
-const highQualityLeads = extractionResult.leads.filter(lead => 
-  lead.confidence >= 0.8 && 
-  lead.type === 'job_posting' &&
-  !!lead.company
+const highQualityLeads = extractionResult.leads.filter(
+  (lead) =>
+    lead.confidence >= 0.8 && lead.type === 'job_posting' && !!lead.company
 );
 
 console.log(`Found ${highQualityLeads.length} high-quality job leads`);

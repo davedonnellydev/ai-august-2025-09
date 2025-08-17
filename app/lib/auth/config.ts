@@ -9,7 +9,8 @@ export const authConfig = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+          scope:
+            'openid email profile https://www.googleapis.com/auth/gmail.readonly',
           access_type: 'offline',
           prompt: 'consent',
         },
@@ -46,8 +47,12 @@ export const authConfig = {
                 userId: user.id,
                 accessToken: account.access_token || null,
                 refreshToken: account.refresh_token,
-                expiryDate: account.expires_at ? new Date(account.expires_at * 1000) : null,
-                scope: account.scope || 'https://www.googleapis.com/auth/gmail.readonly',
+                expiryDate: account.expires_at
+                  ? new Date(account.expires_at * 1000)
+                  : null,
+                scope:
+                  account.scope ||
+                  'https://www.googleapis.com/auth/gmail.readonly',
                 tokenType: account.token_type || 'Bearer',
               })
               .onConflictDoUpdate({
@@ -55,8 +60,12 @@ export const authConfig = {
                 set: {
                   accessToken: account.access_token || null,
                   refreshToken: account.refresh_token,
-                  expiryDate: account.expires_at ? new Date(account.expires_at * 1000) : null,
-                  scope: account.scope || 'https://www.googleapis.com/auth/gmail.readonly',
+                  expiryDate: account.expires_at
+                    ? new Date(account.expires_at * 1000)
+                    : null,
+                  scope:
+                    account.scope ||
+                    'https://www.googleapis.com/auth/gmail.readonly',
                   tokenType: account.token_type || 'Bearer',
                   updatedAt: new Date(),
                 },

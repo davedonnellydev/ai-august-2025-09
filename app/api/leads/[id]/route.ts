@@ -9,12 +9,9 @@ export async function GET(
 ) {
   try {
     const userId = await getCurrentUserId();
-    
+
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const leadId = params.id;
@@ -50,14 +47,10 @@ export async function GET(
       );
 
     if (!lead) {
-      return NextResponse.json(
-        { error: 'Lead not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
     return NextResponse.json(lead);
-
   } catch (error) {
     console.error('Error fetching lead:', error);
     return NextResponse.json(
@@ -73,12 +66,9 @@ export async function PATCH(
 ) {
   try {
     const userId = await getCurrentUserId();
-    
+
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const leadId = params.id;
@@ -86,10 +76,18 @@ export async function PATCH(
     const { status } = body;
 
     // Validate status enum
-    const validStatuses = ['new', 'undecided', 'added_to_huntr', 'rejected', 'duplicate'];
+    const validStatuses = [
+      'new',
+      'undecided',
+      'added_to_huntr',
+      'rejected',
+      'duplicate',
+    ];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
-        { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
+        {
+          error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+        },
         { status: 400 }
       );
     }
@@ -114,14 +112,10 @@ export async function PATCH(
       });
 
     if (!updatedLead) {
-      return NextResponse.json(
-        { error: 'Lead not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
     return NextResponse.json(updatedLead);
-
   } catch (error) {
     console.error('Error updating lead:', error);
     return NextResponse.json(

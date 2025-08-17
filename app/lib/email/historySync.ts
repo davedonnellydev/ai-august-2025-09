@@ -6,7 +6,11 @@ import {
   hashMessage,
 } from '../email/normalize';
 import { upsertEmailMessage, upsertEmailLinks } from '../email/upsert';
-import { extractMessageData, calculateJobSignalScore, extractHtmlFromPayload } from '../email/shared';
+import {
+  extractMessageData,
+  calculateJobSignalScore,
+  extractHtmlFromPayload,
+} from '../email/shared';
 import { gmail_v1 } from 'googleapis';
 
 export interface HistorySyncOptions {
@@ -23,8 +27,6 @@ export interface HistorySyncResult {
   errors: string[];
   newHistoryId?: string;
 }
-
-
 
 /**
  * Process a single Gmail message and upsert to database
@@ -116,7 +118,9 @@ async function processMessage(
   let linksCreated = 0;
   if (bodyText || bodyHtmlRaw) {
     const links = extractLinks({
-      html: bodyHtmlRaw ? Buffer.from(bodyHtmlRaw, 'base64').toString() : undefined,
+      html: bodyHtmlRaw
+        ? Buffer.from(bodyHtmlRaw, 'base64').toString()
+        : undefined,
       text: bodyText,
     });
 
@@ -183,11 +187,13 @@ export async function syncByHistory({
 
     history.forEach((historyRecord: gmail_v1.Schema$History) => {
       if (historyRecord.messagesAdded) {
-        historyRecord.messagesAdded.forEach((messageAdded: gmail_v1.Schema$HistoryMessageAdded) => {
-          if (messageAdded.message?.id) {
-            messageIds.add(messageAdded.message.id);
+        historyRecord.messagesAdded.forEach(
+          (messageAdded: gmail_v1.Schema$HistoryMessageAdded) => {
+            if (messageAdded.message?.id) {
+              messageIds.add(messageAdded.message.id);
+            }
           }
-        });
+        );
       }
 
       // Track the latest history ID

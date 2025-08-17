@@ -13,7 +13,7 @@ export async function exampleSyncStateUsage() {
     // Example 1: Get current sync state
     console.log('=== Getting current sync state ===');
     const currentState = await getSyncState(userId);
-    
+
     if (currentState) {
       console.log('Current sync state:', {
         lastHistoryId: currentState.lastHistoryId || 'none',
@@ -30,10 +30,12 @@ export async function exampleSyncStateUsage() {
       startedAt: new Date(),
       finishedAt: undefined, // Clear finished time when starting
     });
-    
+
     console.log('Sync started:', {
       startedAt: syncStartState.startedAt.toISOString(),
-      finishedAt: syncStartState.finishedAt ? 'should be undefined' : 'undefined (correct)',
+      finishedAt: syncStartState.finishedAt
+        ? 'should be undefined'
+        : 'undefined (correct)',
     });
 
     // Example 3: Update with history ID during sync
@@ -42,7 +44,7 @@ export async function exampleSyncStateUsage() {
     const withHistoryState = await upsertSyncState(userId, {
       lastHistoryId: historyId,
     });
-    
+
     console.log('Updated with history ID:', {
       lastHistoryId: withHistoryState.lastHistoryId,
       startedAt: withHistoryState.startedAt.toISOString(),
@@ -53,7 +55,7 @@ export async function exampleSyncStateUsage() {
     const finishedState = await upsertSyncState(userId, {
       finishedAt: new Date(),
     });
-    
+
     console.log('Sync finished:', {
       lastHistoryId: finishedState.lastHistoryId,
       startedAt: finishedState.startedAt.toISOString(),
@@ -63,7 +65,7 @@ export async function exampleSyncStateUsage() {
     // Example 5: Create initial sync state (if none exists)
     console.log('\n=== Creating initial sync state ===');
     const initialState = await createSyncState(userId, 'initial_history_999');
-    
+
     console.log('Initial state created:', {
       lastHistoryId: initialState.lastHistoryId,
       startedAt: initialState.startedAt.toISOString(),
@@ -74,7 +76,6 @@ export async function exampleSyncStateUsage() {
       success: true,
       finalState: finishedState,
     };
-
   } catch (error) {
     console.error('Error in sync state example:', error);
     return {
@@ -88,11 +89,11 @@ export async function exampleSyncStateUsage() {
 export async function isSyncInProgress(userId: string): Promise<boolean> {
   try {
     const state = await getSyncState(userId);
-    
+
     if (!state) {
       return false; // No sync state means no sync in progress
     }
-    
+
     // If startedAt exists but finishedAt is null/undefined, sync is in progress
     return state.startedAt && !state.finishedAt;
   } catch (error) {
@@ -102,14 +103,16 @@ export async function isSyncInProgress(userId: string): Promise<boolean> {
 }
 
 // Example of getting the last successful sync time
-export async function getLastSuccessfulSyncTime(userId: string): Promise<Date | null> {
+export async function getLastSuccessfulSyncTime(
+  userId: string
+): Promise<Date | null> {
   try {
     const state = await getSyncState(userId);
-    
+
     if (!state || !state.finishedAt) {
       return null; // No successful sync found
     }
-    
+
     return state.finishedAt;
   } catch (error) {
     console.error('Error getting last sync time:', error);
@@ -121,7 +124,7 @@ export async function getLastSuccessfulSyncTime(userId: string): Promise<Date | 
 export async function getSyncStats(userId: string) {
   try {
     const state = await getSyncState(userId);
-    
+
     if (!state) {
       return {
         hasSyncHistory: false,
@@ -130,17 +133,19 @@ export async function getSyncStats(userId: string) {
         isCurrentlySyncing: false,
       };
     }
-    
+
     const now = new Date();
     const isCurrentlySyncing = state.startedAt && !state.finishedAt;
     const lastSyncTime = state.finishedAt;
-    
+
     return {
       hasSyncHistory: true,
       lastSyncTime,
       lastHistoryId: state.lastHistoryId,
       isCurrentlySyncing,
-      timeSinceLastSync: lastSyncTime ? now.getTime() - lastSyncTime.getTime() : null,
+      timeSinceLastSync: lastSyncTime
+        ? now.getTime() - lastSyncTime.getTime()
+        : null,
     };
   } catch (error) {
     console.error('Error getting sync stats:', error);
