@@ -47,7 +47,7 @@ async function main() {
     .insert(gmailLabelsCacheTable)
     .values({
       userId: user.id,
-      providerLabelId: 'Label_969329089524850868',
+      providerLabelId: process.env.DEFAULT_GMAIL_LABEL_ID!,
       name: 'Job Leads',
       type: 'user',
     })

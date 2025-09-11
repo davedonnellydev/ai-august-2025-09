@@ -9,9 +9,7 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get('q') || undefined;
 
     // For testing, hardcode the user ID as requested in the previous implementation
-    const userId = '2d30743e-10cb-4490-933c-4ccdf37364e9';
-
-    // Label id: Label_969329089524850868
+    const userId = process.env.TEST_USER_ID || '';
 
     console.log('Debug list request:', {
       label,

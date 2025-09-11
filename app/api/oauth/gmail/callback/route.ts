@@ -66,7 +66,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const userId = '2d30743e-10cb-4490-933c-4ccdf37364e9';
+    const userId = process.env.TEST_USER_ID || '';
+
+    // Validate and parse the expiry date
+    let expiryDate: Date | null = null;
+    if (tokens.expiry_date) {
+      try {
+        // Google returns expiry_date as seconds since epoch
+        const expiryTimestamp = tokens.expiry_date * 1000; // Convert to milliseconds
+        
+        // Validate the timestamp is reasonable (not in the distant future)
+        const maxReasonableDate = Date.now() + (365 * 24 * 60 * 60 * 1000); // 1 year from now
+        if (expiryTimestamp > 0 && expiryTimestamp < maxReasonableDate) {
+          expiryDate = new Date(expiryTimestamp);
+        } else {
+          console.warn('Invalid expiry date from Google OAuth:', tokens.expiry_date, 'using null instead');
+          expiryDate = null;
+        }
+      } catch (dateError) {
+        console.warn('Failed to parse expiry date from Google OAuth:', tokens.expiry_date, 'using null instead');
+        expiryDate = null;
+      }
+    }
 
     // Upsert tokens into database
     await db
@@ -75,7 +96,7 @@ export async function GET(request: NextRequest) {
         userId,
         accessToken: tokens.access_token || null,
         refreshToken: tokens.refresh_token,
-        expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+        expiryDate: expiryDate,
         scope: tokens.scope || 'https://www.googleapis.com/auth/gmail.readonly',
         tokenType: tokens.token_type || 'Bearer',
         updatedAt: new Date(),
@@ -85,7 +106,7 @@ export async function GET(request: NextRequest) {
         set: {
           accessToken: tokens.access_token || null,
           refreshToken: tokens.refresh_token,
-          expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          expiryDate: expiryDate,
           scope:
             tokens.scope || 'https://www.googleapis.com/auth/gmail.readonly',
           tokenType: tokens.token_type || 'Bearer',

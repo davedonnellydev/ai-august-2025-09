@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Hardcoded user ID and label for testing
-    const userId = '2d30743e-10cb-4490-933c-4ccdf37364e9';
-    const label = 'Label_969329089524850868';
+    const userId = process.env.TEST_USER_ID || '';
+    const label = process.env.DEFAULT_GMAIL_LABEL_ID!;
 
     console.log('Starting Gmail cron sync:', {
       userId,

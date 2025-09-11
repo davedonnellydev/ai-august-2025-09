@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
  * @param userId - User identifier
  * @returns Updated tokens
  */
+
 export async function refreshGmailTokens(userId: string): Promise<{
   accessToken: string;
   expiryDate: Date;
@@ -169,14 +170,35 @@ export async function getGmailOAuthClient(
     console.log('Token refresh event triggered for user:', userId);
     
     try {
+      // Validate and parse the expiry date
+      let expiryDate: Date | null = null;
+      if (newTokens.expiry_date) {
+        try {
+          // Google returns expiry_date as seconds since epoch
+          const expiryTimestamp = newTokens.expiry_date * 1000; // Convert to milliseconds
+          
+          // Validate the timestamp is reasonable (not in the distant future)
+          const maxReasonableDate = Date.now() + (365 * 24 * 60 * 60 * 1000); // 1 year from now
+          if (expiryTimestamp > 0 && expiryTimestamp < maxReasonableDate) {
+            expiryDate = new Date(expiryTimestamp);
+          } else {
+            console.warn('Invalid expiry date from Google tokens event:', newTokens.expiry_date, 'using existing value instead');
+            expiryDate = tokenRecord[0].expiryDate;
+          }
+        } catch (dateError) {
+          console.warn('Failed to parse expiry date from tokens event:', newTokens.expiry_date, 'using existing value instead');
+          expiryDate = tokenRecord[0].expiryDate;
+        }
+      } else {
+        expiryDate = tokenRecord[0].expiryDate;
+      }
+
       // Update tokens in database
       await db
         .update(gmailTokensTable)
         .set({
           accessToken: newTokens.access_token || tokenRecord[0].accessToken,
-          expiryDate: newTokens.expiry_date 
-            ? new Date(newTokens.expiry_date * 1000)
-            : tokenRecord[0].expiryDate,
+          expiryDate: expiryDate,
           updatedAt: new Date(),
         })
         .where(eq(gmailTokensTable.userId, userId));

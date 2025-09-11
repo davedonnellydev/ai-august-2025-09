@@ -63,51 +63,12 @@ export async function upsertSyncState(
   patch: SyncStateUpdate
 ): Promise<SyncState> {
   try {
-    const updateData: any = {};
-
-    if (patch.lastHistoryId !== undefined) {
-      updateData.lastHistoryId = patch.lastHistoryId;
-    }
-
-    if (patch.startedAt !== undefined) {
-      updateData.startedAt = patch.startedAt;
-    }
-
-    if (patch.finishedAt !== undefined) {
-      updateData.finishedAt = patch.finishedAt;
-    }
-
-    if (patch.mode !== undefined) {
-      updateData.mode = patch.mode;
-    }
-
-    if (patch.watchedLabelIds !== undefined) {
-      updateData.watchedLabelIds = patch.watchedLabelIds;
-    }
-
-    if (patch.scanned !== undefined) {
-      updateData.scanned = patch.scanned;
-    }
-
-    if (patch.newEmails !== undefined) {
-      updateData.newEmails = patch.newEmails;
-    }
-
-    if (patch.jobsCreated !== undefined) {
-      updateData.jobsCreated = patch.jobsCreated;
-    }
-
-    if (patch.jobsUpdated !== undefined) {
-      updateData.jobsUpdated = patch.jobsUpdated;
-    }
-
-    if (patch.errors !== undefined) {
-      updateData.errors = patch.errors;
-    }
 
     // Note: syncStateTable doesn't have updatedAt column
+    // Since sync_state is designed to track multiple sync runs per user,
+    // we always insert new records rather than trying to upsert
 
-    const [upsertedSyncState] = await db
+    const [insertedSyncState] = await db
       .insert(syncStateTable)
       .values({
         userId,
@@ -122,16 +83,12 @@ export async function upsertSyncState(
         jobsUpdated: patch.jobsUpdated || 0,
         errors: patch.errors || 0,
       })
-      .onConflictDoUpdate({
-        target: syncStateTable.userId,
-        set: updateData,
-      })
       .returning();
 
     return {
-      lastHistoryId: upsertedSyncState.lastHistoryId || undefined,
-      startedAt: upsertedSyncState.startedAt,
-      finishedAt: upsertedSyncState.finishedAt || undefined,
+      lastHistoryId: insertedSyncState.lastHistoryId || undefined,
+      startedAt: insertedSyncState.startedAt,
+      finishedAt: insertedSyncState.finishedAt || undefined,
     };
   } catch (error) {
     console.error('Error upserting sync state:', error);
